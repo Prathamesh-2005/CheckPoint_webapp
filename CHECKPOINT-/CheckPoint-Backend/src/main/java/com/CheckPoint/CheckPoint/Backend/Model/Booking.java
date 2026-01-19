@@ -9,7 +9,8 @@ import java.util.UUID;
 public class Booking {
 
     @Id
-    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(length = 36, updatable = false, nullable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -28,21 +29,49 @@ public class Booking {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @PrePersist
-    public void generateId() {
-        if (id == null) {
-            id = UUID.randomUUID();
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
         }
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public Ride getRide() { return ride; }
-    public void setRide(Ride ride) { this.ride = ride; }
-    public User getPassenger() { return passenger; }
-    public void setPassenger(User passenger) { this.passenger = passenger; }
-    public BookingStatus getStatus() { return status; }
-    public void setStatus(BookingStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public Ride getRide() {
+        return ride;
+    }
+
+    public void setRide(Ride ride) {
+        this.ride = ride;
+    }
+
+    public User getPassenger() {
+        return passenger;
+    }
+
+    public void setPassenger(User passenger) {
+        this.passenger = passenger;
+    }
+
+    public BookingStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(BookingStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

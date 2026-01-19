@@ -55,8 +55,7 @@ public class AuthController {
                     request.getEmail(),
                     request.getPassword(),
                     request.getFirstName(),
-                    request.getLastName()
-            );
+                    request.getLastName());
 
             String jwt = jwtUtil.generateToken(user);
 
@@ -77,15 +76,13 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            User user = (User) authentication.getPrincipal();
 
+            userService.updateLastLoginByEmail(request.getEmail());
 
-            user.setLastLogin(LocalDateTime.now());
-            userService.updateUser(user);
+            User user = userService.getUserByEmail(request.getEmail());
 
             String jwt = jwtUtil.generateToken(user);
 
@@ -169,7 +166,6 @@ public class AuthController {
     @GetMapping("/oauth2/success")
     public ResponseEntity<?> oauth2LoginSuccess(OAuth2AuthenticationToken token) {
         try {
-            // Extract info from Google OAuth
             String email = token.getPrincipal().getAttribute("email");
             String name = token.getPrincipal().getAttribute("name");
             String googleId = token.getPrincipal().getAttribute("sub");
@@ -201,15 +197,9 @@ public class AuthController {
                 return userService.createUserOAuth(newUser);
             });
 
-            if (!user.getLoginMethod().equals("GOOGLE") || !googleId.equals(user.getGoogleId())) {
-                user.setGoogleId(googleId);
-                user.setLoginMethod("GOOGLE");
-            }
-            if (profileImageUrl != null && !profileImageUrl.equals(user.getProfileImageUrl())) {
-                user.setProfileImageUrl(profileImageUrl);
-            }
-            user.setLastLogin(LocalDateTime.now());
-            userService.updateUser(user);
+            userService.updateLastLoginByEmail(email);
+
+            user = userService.getUserByEmail(email);
 
             String jwt = jwtUtil.generateToken(user);
 
@@ -225,30 +215,6 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
-
-//    @GetMapping("/validate")
-//    public ResponseEntity<?> validateToken(@RequestHeader("Authorization") String authHeader) {
-//        try {
-//            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token format");
-//            }
-//
-//            String token = authHeader.substring(7);
-//            String email = jwtUtil.extractUsername(token);
-//
-//            User user = userService.findByEmail(email).orElse(null);
-//            if (user == null || !jwtUtil.validateToken(token, user)) {
-//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
-//            }
-//
-//            Map<String, Object> response = new HashMap<>();
-//            response.put("valid", true);
-//            response.put("user", userResponse(user));
-//            return ResponseEntity.ok(response);
-//        } catch (Exception e) {
-//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token validation failed");
-//        }
-//    }
 
     private Map<String, Object> userResponse(User user) {
         Map<String, Object> map = new HashMap<>();

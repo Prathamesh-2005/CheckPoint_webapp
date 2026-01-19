@@ -22,8 +22,8 @@ public class BookingService {
     private final SimpMessagingTemplate messagingTemplate;
 
     public BookingService(BookingRepository bookingRepository,
-                          RideRepository rideRepository,
-                          SimpMessagingTemplate messagingTemplate) {
+            RideRepository rideRepository,
+            SimpMessagingTemplate messagingTemplate) {
         this.bookingRepository = bookingRepository;
         this.rideRepository = rideRepository;
         this.messagingTemplate = messagingTemplate;
@@ -51,7 +51,6 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(newBooking);
 
-        // Send notification to driver
         sendBookingRequestNotification(savedBooking);
 
         return savedBooking;
@@ -115,38 +114,14 @@ public class BookingService {
                 "BOOKING_REQUEST",
                 message,
                 booking.getId(),
-                booking.getRide().getId()
-        );
-
-        // Enhanced logging
-        System.out.println("=====================================");
-        System.out.println("SENDING BOOKING REQUEST NOTIFICATION");
-        System.out.println("Driver ID: " + driver.getId());
-        System.out.println("Driver Username: " + driver.getUsername());
-        System.out.println("Driver Email: " + driver.getEmail()); // If applicable
-        System.out.println("Destination: /user/" + driver.getUsername() + "/queue/notifications");
-        System.out.println("Message: " + message);
-        System.out.println("=====================================");
+                booking.getRide().getId());
 
         try {
-            // Method 1: Using convertAndSendToUser (recommended)
             messagingTemplate.convertAndSendToUser(
                     driver.getUsername(),
                     "/queue/notifications",
-                    notification
-            );
-            System.out.println("✓ Notification sent successfully using convertAndSendToUser");
-
-            // Alternative Method 2: Using convertAndSend with full path (for debugging)
-            // Uncomment if Method 1 doesn't work
-            /*
-            String fullDestination = "/user/" + driver.getUsername() + "/queue/notifications";
-            messagingTemplate.convertAndSend(fullDestination, notification);
-            System.out.println("✓ Notification sent successfully using convertAndSend");
-            */
-
+                    notification);
         } catch (Exception e) {
-            System.err.println("✗ Failed to send notification: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -158,26 +133,14 @@ public class BookingService {
                 type,
                 message,
                 booking.getId(),
-                booking.getRide().getId()
-        );
-
-        System.out.println("=====================================");
-        System.out.println("SENDING BOOKING RESPONSE NOTIFICATION");
-        System.out.println("Passenger ID: " + passenger.getId());
-        System.out.println("Passenger Username: " + passenger.getUsername());
-        System.out.println("Notification Type: " + type);
-        System.out.println("Message: " + message);
-        System.out.println("=====================================");
+                booking.getRide().getId());
 
         try {
             messagingTemplate.convertAndSendToUser(
                     passenger.getUsername(),
                     "/queue/notifications",
-                    notification
-            );
-            System.out.println("✓ Response notification sent successfully");
+                    notification);
         } catch (Exception e) {
-            System.err.println("✗ Failed to send response notification: " + e.getMessage());
             e.printStackTrace();
         }
     }

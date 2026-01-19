@@ -27,43 +27,29 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        System.out.println("=== WebSocket Message Received ===");
-        System.out.println("Command: " + (accessor != null ? accessor.getCommand() : "NULL"));
-
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-            System.out.println("Processing CONNECT command");
             String authToken = accessor.getFirstNativeHeader("Authorization");
-            System.out.println("Auth token present: " + (authToken != null));
 
             if (authToken != null && authToken.startsWith("Bearer ")) {
                 String jwt = authToken.substring(7);
 
                 try {
                     String username = jwtUtil.extractUsername(jwt);
-                    System.out.println("Extracted username: " + username);
 
                     if (username != null) {
                         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                         if (jwtUtil.validateToken(jwt, userDetails)) {
-                            System.out.println("Token validated successfully for: " + username);
-                            UsernamePasswordAuthenticationToken authentication =
-                                    new UsernamePasswordAuthenticationToken(
-                                            userDetails,
-                                            null,
-                                            userDetails.getAuthorities()
-                                    );
+                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities());
                             accessor.setUser(authentication);
-                        } else {
-                            System.out.println("Token validation failed");
                         }
                     }
                 } catch (Exception e) {
-                    System.err.println("WebSocket authentication failed: " + e.getMessage());
                     e.printStackTrace();
                 }
-            } else {
-                System.out.println("No valid Authorization header found");
             }
         }
 
