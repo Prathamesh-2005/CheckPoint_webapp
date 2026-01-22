@@ -3,15 +3,18 @@ import { useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import Lottie from "lottie-react"
+import checkpointAnimation from "../assets/checkpoint-lottie.json"
+import TextPressure from "../components/ui/TextPressure"
+import { Spinner } from "@/components/ui/spinner"
 
 export function RegisterPage() {
   const [form, setForm] = useState({
@@ -45,39 +48,55 @@ export function RegisterPage() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#18181b] via-[#23272f] to-[#101014] text-white">
-      <div className="hidden md:flex flex-col justify-center items-center w-1/2 bg-[#18181b] relative overflow-hidden">
-        <div className="relative z-10 text-center px-8">
-          <h1 className="text-5xl font-extrabold tracking-tight mb-4 text-blue-300 drop-shadow-lg">
-            CheckPoint
-          </h1>
-          <p className="text-lg text-gray-300 mb-8">
-            Your trusted ride sharing platform.
-            <br />
-            <span className="text-pink-300 font-semibold">
-              Secure. Fast. Reliable.
-            </span>
+      {/* Left Section */}
+      <div className="hidden md:flex flex-col items-center justify-center w-1/2 bg-[#18181b] relative overflow-hidden">
+        <div className="flex flex-col items-center justify-center h-full w-full px-8">
+          <div className="mb-4 mt-24 w-full flex justify-center">
+            <TextPressure
+              text="CheckPoint"
+              flex={true}
+              alpha={false}
+              stroke={false}
+              width={false}
+              weight={true}
+              italic={false}
+              textColor="currentColor"
+              minFontSize={36}
+              className="text-5xl font-extrabold tracking-normal"
+            />
+          </div>
+          <p className="text-pink-300 font-semibold text-lg mb-2 text-center">
+            Secure. Fast. Reliable.
           </p>
+          <p className="text-lg text-gray-300 mb-6 text-center">
+            Your trusted ride sharing platform.
+          </p>
+          <div className="flex justify-center mb-4">
+            <Lottie
+              animationData={checkpointAnimation}
+              loop={true}
+              style={{ width: 350, height: 350 }}
+            />
+          </div>
         </div>
       </div>
-      <div className="flex flex-1 items-center justify-center">
-        <Card className="w-full max-w-sm bg-[#18181b] border border-gray-800 shadow-xl">
-          <CardHeader>
-            <CardTitle>Create your account</CardTitle>
-            <CardDescription>
-              Enter your details below to create your account
-            </CardDescription>
-            <CardAction>
-              <Button variant="link" asChild>
-                <Link to="/login">Login</Link>
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-6">
-                {error && (
-                  <div className="text-sm text-red-400">{error}</div>
-                )}
+      {/* Right Section */}
+      <div className="flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="bg-[#18181b] border border-gray-800 shadow-xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl text-foreground">
+                Create your account
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Enter your details below to create your account
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {error && (
+                <div className="text-sm text-red-400">{error}</div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="firstName" className="text-sm font-medium text-gray-200 mb-1">
@@ -142,18 +161,40 @@ export function RegisterPage() {
                     onChange={handleChange}
                   />
                 </div>
-              </div>
-              <CardFooter className="flex-col gap-2 mt-6 px-0">
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Creating Account..." : "Create Account"}
+                  {loading ? (
+                    <>
+                      <Spinner className="w-4 h-4 mr-2" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
                 </Button>
-                <Button variant="outline" className="w-full" type="button">
-                  Sign up with Google
-                </Button>
-              </CardFooter>
-            </form>
-          </CardContent>
-        </Card>
+              </form>
+              <Button variant="outline" className="w-full" type="button">
+                Sign up with Google
+              </Button>
+              <div className="text-center">
+                <p className="text-muted-foreground">
+                  Already have an account?{" "}
+                  <Link
+                    to="/login"
+                    className="text-primary hover:text-primary/80 font-medium underline underline-offset-4"
+                  >
+                    Login
+                  </Link>
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter />
+          </Card>
+          <div className="text-center mt-6">
+            <p className="text-muted-foreground text-sm">
+              ©2025 CheckPoint. All rights reserved.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
