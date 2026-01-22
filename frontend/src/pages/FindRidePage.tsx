@@ -397,6 +397,7 @@ export function FindRidePage() {
                           <Card
                             key={ride.id}
                             className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                            onClick={() => navigate(`/ride/${ride.id}`)}
                           >
                             <CardContent className="p-3">
                               <div className="flex flex-col sm:flex-row gap-3">

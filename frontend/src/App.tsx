@@ -10,6 +10,9 @@ import { WalletPage } from "./pages/WalletPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { ChatPage } from "./pages/ChatPage";
 import { HelpPage } from "./pages/HelpPage";
+import { RideDetailsPage } from "./pages/RideDetailsPage";
+import { PaymentPage } from "./pages/PaymentPage";
+import { LiveTrackingPage } from "./pages/LiveTrackingPage";
 
 function App() {
   return (
@@ -28,6 +31,9 @@ function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/messages" element={<ChatPage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/ride/:rideId" element={<RideDetailsPage />} />
+          <Route path="/ride/:rideId/payment" element={<PaymentPage />} />
+          <Route path="/ride/:rideId/track" element={<LiveTrackingPage />} />
         </Routes>
       </Router>
     </div>
