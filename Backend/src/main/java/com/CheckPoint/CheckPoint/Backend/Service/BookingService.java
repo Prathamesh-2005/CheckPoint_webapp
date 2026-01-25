@@ -106,6 +106,11 @@ public class BookingService {
         return updatedBooking;
     }
 
+    public Booking getBookingByRideAndPassenger(UUID rideId, User passenger) {
+        return bookingRepository.findByRideIdAndPassengerId(rideId, passenger.getId())
+                .orElse(null);
+    }
+
     private void sendBookingRequestNotification(Booking booking) {
         User driver = booking.getRide().getDriver();
         String message = "You have a new ride request from " + booking.getPassenger().getFirstName();

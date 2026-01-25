@@ -107,19 +107,25 @@ public class RideService {
         return new RideResponse(savedRide);
     }
 
-    public RideResponse completeRide(UUID rideId, User driver) {
-        Ride ride = getRideEntityById(rideId);
-        
-        validateDriverOwnership(ride, driver);
 
-        if (ride.getStatus() != RideStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Only in-progress rides can be completed. Current status: " + ride.getStatus());
-        }
+@Transactional
+public RideResponse completeRide(UUID rideId, User driver) {
+    Ride ride = rideRepository.findById(rideId)
+            .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        ride.setStatus(RideStatus.COMPLETED);
-        Ride savedRide = rideRepository.save(ride);
-        return new RideResponse(savedRide);
+    if (!ride.getDriver().getId().equals(driver.getId())) {
+        throw new RuntimeException("Unauthorized: You are not the driver of this ride");
     }
+
+    if (!ride.getStatus().equals(RideStatus.IN_PROGRESS)) {
+        throw new RuntimeException("Ride is not in progress");
+    }
+
+    ride.setStatus(RideStatus.COMPLETED);
+    
+    Ride savedRide = rideRepository.save(ride);
+    return new RideResponse(savedRide);
+}
 
     private void validateDriverOwnership(Ride ride, User driver) {
         if (!ride.getDriver().getId().equals(driver.getId())) {

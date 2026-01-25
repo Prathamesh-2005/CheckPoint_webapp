@@ -48,6 +48,7 @@ public class AuthController {
     @Autowired
     private PasswordResetTokenRepository tokenRepository;
 
+    
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {

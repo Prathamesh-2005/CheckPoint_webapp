@@ -50,6 +50,9 @@ public class User implements UserDetails {
     @Column(name = "enabled", nullable = false)
     private Boolean enabled = true;
 
+    @Embedded
+    private BankDetails bankDetails;
+
     @PrePersist
     public void prePersist() {
         if (accountNonExpired == null)
@@ -204,5 +207,13 @@ public class User implements UserDetails {
 
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public BankDetails getBankDetails() {
+        return bankDetails;
+    }
+
+    public void setBankDetails(BankDetails bankDetails) {
+        this.bankDetails = bankDetails;
     }
 }
