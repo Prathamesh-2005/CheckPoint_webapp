@@ -8,4 +8,12 @@ import java.util.UUID;
 public class CreatePaymentRequest {
     @NotNull(message = "Ride ID is required")
     private UUID rideId;
+
+    public @NotNull(message = "Ride ID is required") UUID getRideId() {
+        return rideId;
+    }
+
+    public void setRideId(@NotNull(message = "Ride ID is required") UUID rideId) {
+        this.rideId = rideId;
+    }
 }

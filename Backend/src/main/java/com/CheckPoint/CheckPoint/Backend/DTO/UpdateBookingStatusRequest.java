@@ -1,18 +1,17 @@
 package com.CheckPoint.CheckPoint.Backend.DTO;
 
-import com.CheckPoint.CheckPoint.Backend.Model.BookingStatus;
 import jakarta.validation.constraints.NotNull;
 
 public class UpdateBookingStatusRequest {
 
     @NotNull(message = "Status cannot be null")
-    private BookingStatus status;
+    private String status; // Status should be a String (e.g., "ACCEPTED", "REJECTED")
 
-    public BookingStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(BookingStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 }

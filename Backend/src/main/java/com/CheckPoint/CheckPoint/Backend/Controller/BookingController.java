@@ -11,11 +11,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin("http://127.0.0.1:5500/")
+@CrossOrigin(origins = {
+        "http://127.0.0.1:5500/", "http://localhost:5173"
+})
 public class BookingController {
 
     private final BookingService bookingService;
@@ -39,5 +43,15 @@ public class BookingController {
             @AuthenticationPrincipal User driver) {
         Booking updatedBooking = bookingService.updateBookingStatus(bookingId, statusRequest, driver);
         return ResponseEntity.ok(new BookingResponse(updatedBooking));
+    }
+
+    @GetMapping("/bookings/my-bookings")
+    public ResponseEntity<List<BookingResponse>> getMyBookings(
+            @AuthenticationPrincipal User passenger) {
+        List<Booking> bookings = bookingService.getPassengerBookings(passenger);
+        List<BookingResponse> response = bookings.stream()
+                .map(BookingResponse::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 }

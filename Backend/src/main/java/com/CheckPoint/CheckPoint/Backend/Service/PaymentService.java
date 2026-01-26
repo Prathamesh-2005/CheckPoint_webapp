@@ -31,13 +31,16 @@ public class PaymentService {
     private final RideRepository rideRepository;
     private final TransactionRepository transactionRepository;
     private final BookingService bookingService;
+    private final NotificationService notificationService;
 
     public PaymentService(RideRepository rideRepository,
             TransactionRepository transactionRepository,
-            BookingService bookingService) {
+            BookingService bookingService,
+            NotificationService notificationService) {
         this.rideRepository = rideRepository;
         this.transactionRepository = transactionRepository;
         this.bookingService = bookingService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -123,6 +126,21 @@ public class PaymentService {
             ride.setPaymentStatus(PaymentStatus.COMPLETED);
             ride.setPaymentMethod(request.getPaymentMethod());
             rideRepository.save(ride);
+            notificationService.createAndSendNotification(
+                    rider,
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Successful",
+                    "Your payment of ₹" + ride.getPrice() + " was completed successfully",
+                    ride.getId(),
+                    null);
+
+            notificationService.createAndSendNotification(
+                    ride.getDriver(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Received",
+                    "You received ₹" + ride.getDriverEarnings() + " for your ride",
+                    ride.getId(),
+                    null);
 
             return new TransactionResponse(transaction);
 

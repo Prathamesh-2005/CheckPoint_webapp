@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Calendar,
   MapPin,
@@ -28,182 +28,61 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useNavigate } from "react-router-dom"
-
-interface Ride {
-  id: number
-  type: "offered" | "booked"
-  status: "upcoming" | "completed" | "cancelled"
-  from: string
-  to: string
-  date: string
-  time: string
-  price: string
-  distance: string
-  duration: string
-  stops?: string[]
-  vehicle?: {
-    model: string
-    number: string
-  }
-  rider?: {
-    name: string
-    avatar: string
-    rating: number
-    phone: string
-  }
-  driver?: {
-    name: string
-    avatar: string
-    rating: number
-    phone: string
-  }
-  passengers?: Array<{
-    name: string
-    avatar: string
-    rating: number
-    status: "confirmed" | "pending"
-  }>
-}
-
-const mockRides: Ride[] = [
-  {
-    id: 1,
-    type: "offered",
-    status: "upcoming",
-    from: "Koramangala",
-    to: "Whitefield",
-    date: "2024-01-15",
-    time: "09:00 AM",
-    price: "250",
-    distance: "14.5 km",
-    duration: "35 min",
-    vehicle: {
-      model: "Royal Enfield Classic 350",
-      number: "KA 01 AB 1234",
-    },
-    passengers: [
-      {
-        name: "Priya Sharma",
-        avatar: "",
-        rating: 4.8,
-        status: "confirmed",
-      },
-    ],
-  },
-  {
-    id: 2,
-    type: "booked",
-    status: "upcoming",
-    from: "Indiranagar",
-    to: "Electronic City",
-    date: "2024-01-16",
-    time: "06:00 PM",
-    price: "320",
-    distance: "18.2 km",
-    duration: "45 min",
-    driver: {
-      name: "Rahul Kumar",
-      avatar: "",
-      rating: 4.9,
-      phone: "+91 98765 43210",
-    },
-    vehicle: {
-      model: "Bajaj Pulsar NS200",
-      number: "KA 05 CD 5678",
-    },
-  },
-  {
-    id: 3,
-    type: "offered",
-    status: "completed",
-    from: "Marathahalli",
-    to: "HSR Layout",
-    date: "2024-01-10",
-    time: "08:30 AM",
-    price: "180",
-    distance: "9.5 km",
-    duration: "25 min",
-    vehicle: {
-      model: "Honda Activa 6G",
-      number: "KA 02 EF 9012",
-    },
-    passengers: [
-      {
-        name: "Amit Singh",
-        avatar: "",
-        rating: 4.7,
-        status: "confirmed",
-      },
-    ],
-  },
-  {
-    id: 4,
-    type: "booked",
-    status: "completed",
-    from: "Jayanagar",
-    to: "MG Road",
-    date: "2024-01-08",
-    time: "05:15 PM",
-    price: "150",
-    distance: "7.8 km",
-    duration: "20 min",
-    driver: {
-      name: "Sneha Reddy",
-      avatar: "",
-      rating: 5.0,
-      phone: "+91 98765 11111",
-    },
-    vehicle: {
-      model: "TVS Apache RTR 160",
-      number: "KA 03 GH 3456",
-    },
-  },
-  {
-    id: 5,
-    type: "offered",
-    status: "cancelled",
-    from: "Bellandur",
-    to: "Koramangala",
-    date: "2024-01-12",
-    time: "07:00 AM",
-    price: "120",
-    distance: "5.5 km",
-    duration: "15 min",
-    vehicle: {
-      model: "Suzuki Gixxer SF",
-      number: "KA 04 IJ 7890",
-    },
-    passengers: [],
-  },
-]
+import { rideService } from "@/services/rideService"
 
 export function MyRidesPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedRide, setSelectedRide] = useState<Ride | null>(null)
+  const [selectedRide, setSelectedRide] = useState<any | null>(null)
+  const [rides, setRides] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  const filteredRides = mockRides.filter((ride) => {
-    const matchesSearch = 
-      ride.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ride.to.toLowerCase().includes(searchQuery.toLowerCase())
+  // ✅ Add this: Get current user to determine if they're the driver
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+
+  // ✅ Add auto-refresh every 5 seconds to detect status changes
+  useEffect(() => {
+    loadRides()
+    
+    const interval = setInterval(() => {
+      loadRides()
+    }, 5000) // Refresh every 5 seconds
+    
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadRides = async () => {
+    try {
+      const data = await rideService.getMyRides()
+      setRides(data)
+    } catch (error) {
+      console.error("Failed to load rides:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredRides = rides.filter((ride) => {
+    const matchesSearch = searchQuery === ""
     
     if (activeTab === "all") return matchesSearch
-    if (activeTab === "offered") return ride.type === "offered" && matchesSearch
-    if (activeTab === "booked") return ride.type === "booked" && matchesSearch
-    if (activeTab === "upcoming") return ride.status === "upcoming" && matchesSearch
-    if (activeTab === "completed") return ride.status === "completed" && matchesSearch
+    if (activeTab === "upcoming") return (ride.status === "REQUESTED" || ride.status === "CONFIRMED") && matchesSearch
+    if (activeTab === "completed") return ride.status === "COMPLETED" && matchesSearch
+    if (activeTab === "offered") return matchesSearch
+    if (activeTab === "booked") return matchesSearch
     
     return matchesSearch
   })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "upcoming":
+      case "REQUESTED":
+      case "CONFIRMED":
         return "border-blue-500/50 bg-blue-500/10 text-blue-400"
-      case "completed":
+      case "COMPLETED":
         return "border-green-500/50 bg-green-500/10 text-green-400"
-      case "cancelled":
+      case "CANCELLED":
         return "border-red-500/50 bg-red-500/10 text-red-400"
       default:
         return "border-white/20 bg-white/5 text-white/60"
@@ -212,11 +91,12 @@ export function MyRidesPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "upcoming":
+      case "REQUESTED":
+      case "CONFIRMED":
         return <Clock className="w-3 h-3" />
-      case "completed":
+      case "COMPLETED":
         return <CheckCircle2 className="w-3 h-3" />
-      case "cancelled":
+      case "CANCELLED":
         return <AlertCircle className="w-3 h-3" />
       default:
         return null
@@ -298,37 +178,20 @@ export function MyRidesPage() {
                                 </CardContent>
                               </Card>
                             ) : (
-                              filteredRides.map((ride) => (
+                              filteredRides.map((ride) => {
+                                // ✅ Determine if current user is the driver of this ride
+                                const isDriver = currentUser.id === ride.driver?.id
+
+                                return (
                                 <Card
                                   key={ride.id}
                                   className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
-                                  onClick={() => setSelectedRide(ride)}
                                 >
                                   <CardContent className="p-4">
                                     <div className="flex flex-col sm:flex-row gap-4">
                                       <div className="flex-1 space-y-3">
                                         <div className="flex items-start justify-between gap-2">
                                           <div className="flex items-center gap-2">
-                                            <Badge
-                                              variant="outline"
-                                              className={`text-xs ${
-                                                ride.type === "offered"
-                                                  ? "border-purple-500/50 bg-purple-500/10 text-purple-400"
-                                                  : "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
-                                              }`}
-                                            >
-                                              {ride.type === "offered" ? (
-                                                <>
-                                                  <Car className="w-3 h-3 mr-1" />
-                                                  Offered
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <User className="w-3 h-3 mr-1" />
-                                                  Booked
-                                                </>
-                                              )}
-                                            </Badge>
                                             <Badge variant="outline" className={`text-xs ${getStatusColor(ride.status)}`}>
                                               {getStatusIcon(ride.status)}
                                               <span className="ml-1 capitalize">{ride.status}</span>
@@ -339,71 +202,28 @@ export function MyRidesPage() {
                                         <div className="space-y-2">
                                           <div className="flex items-center gap-2 text-sm">
                                             <MapPin className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                            <span className="text-white font-medium">{ride.from}</span>
+                                            <span className="text-white font-medium">
+                                              Lat: {ride.startLatitude}, Lng: {ride.startLongitude}
+                                            </span>
                                           </div>
                                           <div className="flex items-center gap-2 text-sm">
                                             <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                            <span className="text-white font-medium">{ride.to}</span>
+                                            <span className="text-white font-medium">
+                                              Lat: {ride.endLatitude}, Lng: {ride.endLongitude}
+                                            </span>
                                           </div>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
                                           <div className="flex items-center gap-1">
                                             <Calendar className="w-3 h-3" />
-                                            <span>{ride.date}</span>
+                                            <span>{new Date(ride.departureTime).toLocaleDateString()}</span>
                                           </div>
                                           <div className="flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
-                                            <span>{ride.time}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <ChevronRight className="w-3 h-3" />
-                                            <span>{ride.distance} • {ride.duration}</span>
+                                            <span>{new Date(ride.departureTime).toLocaleTimeString()}</span>
                                           </div>
                                         </div>
-
-                                        {ride.vehicle && (
-                                          <div className="flex items-center gap-2 text-xs text-white/60 bg-white/5 px-3 py-2 rounded">
-                                            <Car className="w-3 h-3" />
-                                            <span>{ride.vehicle.model} • {ride.vehicle.number}</span>
-                                          </div>
-                                        )}
-
-                                        {ride.type === "offered" && ride.passengers && ride.passengers.length > 0 && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs text-white/60">Passengers:</span>
-                                            {ride.passengers.map((passenger, idx) => (
-                                              <div key={idx} className="flex items-center gap-1">
-                                                <Avatar className="h-6 w-6 border border-white/10">
-                                                  <AvatarImage src={passenger.avatar} />
-                                                  <AvatarFallback className="bg-blue-600 text-white text-xs">
-                                                    {passenger.name.split(" ").map(n => n[0]).join("")}
-                                                  </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-xs text-white/80">{passenger.name}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-
-                                        {ride.type === "booked" && ride.driver && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs text-white/60">Driver:</span>
-                                            <div className="flex items-center gap-2">
-                                              <Avatar className="h-6 w-6 border border-white/10">
-                                                <AvatarImage src={ride.driver.avatar} />
-                                                <AvatarFallback className="bg-blue-600 text-white text-xs">
-                                                  {ride.driver.name.split(" ").map(n => n[0]).join("")}
-                                                </AvatarFallback>
-                                              </Avatar>
-                                              <span className="text-xs text-white/80">{ride.driver.name}</span>
-                                              <div className="flex items-center gap-0.5">
-                                                <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-                                                <span className="text-xs text-yellow-500">{ride.driver.rating}</span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
                                       </div>
 
                                       <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-3 sm:pt-0 sm:pl-4 sm:min-w-[120px]">
@@ -411,12 +231,124 @@ export function MyRidesPage() {
                                           <div className="text-2xl font-bold text-white">₹{ride.price}</div>
                                           <p className="text-xs text-white/40">Total</p>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-white/40" />
+                                        
+                                        {/* ✅ Show different buttons based on ride status */}
+                                        {ride.status === 'AVAILABLE' && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-white/20 mt-2"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              navigate(`/ride/${ride.id}`)
+                                            }}
+                                          >
+                                            View Details
+                                          </Button>
+                                        )}
+                                        
+                                        {ride.status === 'CONFIRMED' && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              className="bg-green-600 hover:bg-green-700 mt-2"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}/track`)
+                                              }}
+                                            >
+                                              {isDriver ? 'Start Ride' : 'Track Ride'}
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-white/20"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}`)
+                                              }}
+                                            >
+                                              Details
+                                            </Button>
+                                          </>
+                                        )}
+                                        
+                                        {ride.status === 'IN_PROGRESS' && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              className="bg-blue-600 hover:bg-blue-700 mt-2"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}/track`)
+                                              }}
+                                            >
+                                              Track Live
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-white/20"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}`)
+                                              }}
+                                            >
+                                              Details
+                                            </Button>
+                                          </>
+                                        )}
+                                        
+                                        {ride.status === 'COMPLETED' && !isDriver && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              className="bg-purple-600 hover:bg-purple-700 mt-2 w-full"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}/payment`)
+                                              }}
+                                            >
+                                              💳 Pay Now
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-white/20 w-full"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}`)
+                                              }}
+                                            >
+                                              Details
+                                            </Button>
+                                          </>
+                                        )}
+                                        
+                                        {ride.status === 'COMPLETED' && isDriver && (
+                                          <>
+                                            <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                                              ✅ Completed
+                                            </Badge>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-white/20"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/ride/${ride.id}`)
+                                              }}
+                                            >
+                                              Details
+                                            </Button>
+                                          </>
+                                        )}
                                       </div>
                                     </div>
                                   </CardContent>
                                 </Card>
-                              ))
+                                )
+                              })
                             )}
                           </div>
                         </ScrollArea>
@@ -534,7 +466,7 @@ export function MyRidesPage() {
                           <Avatar className="h-12 w-12 border-2 border-white/10">
                             <AvatarImage src={selectedRide.driver.avatar} />
                             <AvatarFallback className="bg-blue-600 text-white">
-                              {selectedRide.driver.name.split(" ").map(n => n[0]).join("")}
+                              {selectedRide.driver.name.split(" ").map((n: string) => n[0]).join("")}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
@@ -563,12 +495,12 @@ export function MyRidesPage() {
                       <div>
                         <h3 className="text-sm font-semibold text-white mb-3">Passengers</h3>
                         <div className="space-y-2">
-                          {selectedRide.passengers.map((passenger, idx) => (
+                          {selectedRide.passengers.map((passenger: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
                               <Avatar className="h-10 w-10 border-2 border-white/10">
                                 <AvatarImage src={passenger.avatar} />
                                 <AvatarFallback className="bg-blue-600 text-white text-xs">
-                                  {passenger.name.split(" ").map(n => n[0]).join("")}
+                                  {passenger.name.split(" ").map((n: string) => n[0]).join("")}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">

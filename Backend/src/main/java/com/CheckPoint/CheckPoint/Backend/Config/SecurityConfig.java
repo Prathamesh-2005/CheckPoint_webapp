@@ -3,6 +3,7 @@ package com.CheckPoint.CheckPoint.Backend.Config;
 import com.CheckPoint.CheckPoint.Backend.Security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -32,11 +33,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+
         http
+                .cors(cors -> {
+                })
+
                 .csrf(csrf -> csrf.disable())
+
                 .authorizeHttpRequests(authz -> authz
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
@@ -46,10 +55,13 @@ public class SecurityConfig {
                                 "/login**",
                                 "/ws/**")
                         .permitAll()
+
                         .anyRequest().authenticated())
-                .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl("/api/auth/oauth2/success", true))
+
+                .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl("/api/auth/oauth2/success", true))
+
                 .logout(logout -> logout.logoutSuccessUrl("/"))
+
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

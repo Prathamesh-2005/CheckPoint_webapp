@@ -16,7 +16,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin("http://127.0.0.1:5500/")
+@CrossOrigin(origins =
+        {
+                "http://127.0.0.1:5500/","http://localhost:5173/"
+        })
 public class PaymentController {
 
     private final PaymentService paymentService;

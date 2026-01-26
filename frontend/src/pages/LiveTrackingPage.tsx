@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -16,12 +16,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Popup } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { rideService } from "@/services/rideService"
+import { locationService } from "@/services/locationService"
+import { Loader2 } from "lucide-react"
 
 // Custom marker icons
-const userIcon = L.divIcon({
+const passengerIcon = L.divIcon({
   html: `<div style="
     background-color: #3b82f6; 
     width: 40px; 
@@ -32,12 +35,14 @@ const userIcon = L.divIcon({
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 20px;
   ">👤</div>`,
   iconSize: [40, 40],
   iconAnchor: [20, 20],
+  popupAnchor: [0, -20],
 })
 
-const bikeIcon = L.divIcon({
+const driverIcon = L.divIcon({
   html: `<div style="
     background-color: #10b981; 
     width: 40px; 
@@ -52,63 +57,125 @@ const bikeIcon = L.divIcon({
   ">🏍️</div>`,
   iconSize: [40, 40],
   iconAnchor: [20, 20],
+  popupAnchor: [0, -20],
 })
 
 export function LiveTrackingPage() {
   const navigate = useNavigate()
   const { rideId } = useParams()
-  const [rideStatus, setRideStatus] = useState("waiting") // waiting, ongoing, completed
-  const [eta, setEta] = useState("5 mins")
-  const [userRole, setUserRole] = useState<"driver" | "rider">("driver") // Dynamic role
+  const [ride, setRide] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const mapRef = useRef<L.Map | null>(null)
 
-  // Mock ride data - in real app, fetch by rideId and determine user role
-  const rideDetails = {
-    driver: {
-      id: "driver123",
-      name: "Rahul Kumar",
-      phone: "+91 98765 43210",
-      rating: 4.8,
-      avatar: "",
-      vehicle: "Royal Enfield Classic 350",
-      number: "KA 01 AB 1234",
-    },
-    rider: {
-      id: "rider456",
-      name: "Priya Sharma",
-      phone: "+91 87654 32109",
-      rating: 4.9,
-      avatar: "",
-    },
-    route: {
-      from: "Indiranagar Metro Station",
-      to: "Whitefield IT Park",
-      distance: "12.5 km",
-    },
-    riderLocation: { lat: 12.9716, lng: 77.5946 },
-    driverLocation: { lat: 12.9650, lng: 77.5900 },
-    pickupLocation: { lat: 12.9716, lng: 77.5946 },
-    dropLocation: { lat: 12.9698, lng: 77.7499 },
+  // ✅ Remove hardcoded rideStatus, use ride.status from backend
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+
+  useEffect(() => {
+    loadRideDetails()
+    
+    // ✅ Poll for ride updates every 5 seconds
+    const interval = setInterval(() => {
+      loadRideDetails()
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [rideId])
+
+  const loadRideDetails = async () => {
+    try {
+      const data = await rideService.getRideById(rideId!)
+      setRide(data)
+      
+      // ✅ If ride is completed, redirect to payment for passengers
+      if (data.status === 'COMPLETED' && currentUser.id !== data.driver?.id) {
+        setTimeout(() => {
+          navigate(`/ride/${rideId}/payment`)
+        }, 2000)
+      }
+    } catch (error) {
+      console.error("Failed to load ride:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Determine current user's role (in real app, compare with logged-in user ID)
-  const currentUserId = "driver123" // Get from auth context
-  const isDriver = currentUserId === rideDetails.driver.id
-  const otherPerson = isDriver ? rideDetails.rider : rideDetails.driver
-
-  // Simulate driver moving closer
-  useEffect(() => {
-    if (rideStatus === "waiting") {
-      const interval = setInterval(() => {
-        setEta((prev) => {
-          const mins = parseInt(prev)
-          if (mins > 0) return `${mins - 1} mins`
-          setRideStatus("ongoing")
-          return "Started"
-        })
-      }, 10000)
-      return () => clearInterval(interval)
+  const handleStartRide = async () => {
+    try {
+      await rideService.startRide(rideId!)
+      // Refresh ride data
+      await loadRideDetails()
+    } catch (error: any) {
+      alert(error.message || 'Failed to start ride')
     }
-  }, [rideStatus])
+  }
+
+  const handleCompleteRide = async () => {
+    try {
+      await rideService.completeRide(rideId!)
+      // Refresh ride data
+      await loadRideDetails()
+      setTimeout(() => navigate('/my-rides'), 2000)
+    } catch (error: any) {
+      alert(error.message || 'Failed to complete ride')
+    }
+  }
+
+  // Add early return for loading/error states BEFORE using ride data
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    )
+  }
+
+  if (!ride) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <p className="text-white">Ride not found</p>
+      </div>
+    )
+  }
+
+  // ✅ Convert ride data to expected format with proper null checks
+  const pickupLocation = {
+    lat: ride.startLatitude || 12.9716,
+    lng: ride.startLongitude || 77.5946
+  }
+
+  const dropLocation = {
+    lat: ride.endLatitude || 12.9716,
+    lng: ride.endLongitude || 77.5946
+  }
+
+  // Mock current locations (these would come from real-time tracking)
+  const riderLocation = pickupLocation // Passenger starts at pickup
+  const driverLocation = {
+    lat: pickupLocation.lat + 0.01, // Driver slightly away
+    lng: pickupLocation.lng + 0.01
+  }
+
+  const isDriver = currentUser.id === ride.driver?.id
+  
+  // ✅ Get passenger name from booking if available
+  const passengerName = isDriver ? "Passenger" : `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+  const driverName = `${ride.driver?.firstName || ''} ${ride.driver?.lastName || ''}`.trim()
+
+  const otherPerson = isDriver 
+    ? { 
+        name: passengerName, 
+        avatar: "", 
+        rating: 4.5, 
+        phone: "1234567890" 
+      }
+    : {
+        name: driverName,
+        avatar: ride.driver?.profileImageUrl || "",
+        rating: 4.5,
+        phone: "1234567890",
+        vehicle: "Honda Activa",
+        number: "KA 01 AB 1234"
+      }
 
   function MapUpdater({ center }: { center: { lat: number; lng: number } }) {
     const map = useMap()
@@ -142,14 +209,14 @@ export function LiveTrackingPage() {
             </div>
             <Badge
               className={`${
-                rideStatus === "waiting"
+                ride.status === "waiting"
                   ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                  : rideStatus === "ongoing"
+                  : ride.status === "ongoing"
                   ? "bg-green-500/10 text-green-400 border-green-500/30"
                   : "bg-blue-500/10 text-blue-400 border-blue-500/30"
               }`}
             >
-              {rideStatus === "waiting" ? "Waiting" : rideStatus === "ongoing" ? "Ongoing" : "Completed"}
+              {ride.status === "CONFIRMED" ? "Waiting" : ride.status === "IN_PROGRESS" ? "Ongoing" : "Completed"}
             </Badge>
           </div>
         </div>
@@ -158,7 +225,7 @@ export function LiveTrackingPage() {
       {/* Map */}
       <div className="flex-1 relative">
         <MapContainer
-          center={[rideDetails.pickupLocation.lat, rideDetails.pickupLocation.lng]}
+          center={[pickupLocation.lat, pickupLocation.lng]}
           zoom={13}
           style={{ height: "100%", width: "100%" }}
         >
@@ -166,19 +233,45 @@ export function LiveTrackingPage() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="© OpenStreetMap contributors"
           />
-          <MapUpdater center={rideDetails.pickupLocation} />
+          <MapUpdater center={pickupLocation} />
           
-          {/* Rider Location */}
-          <Marker position={[rideDetails.riderLocation.lat, rideDetails.riderLocation.lng]} icon={userIcon} />
+          {/* ✅ Passenger Location with Popup */}
+          <Marker 
+            position={[riderLocation.lat, riderLocation.lng]} 
+            icon={passengerIcon}
+          >
+            <Popup>
+              <div className="text-center">
+                <p className="font-semibold text-sm">👤 Passenger</p>
+                <p className="text-xs text-gray-600">{passengerName}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  📍 {riderLocation.lat.toFixed(4)}, {riderLocation.lng.toFixed(4)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
           
-          {/* Driver Location */}
-          <Marker position={[rideDetails.driverLocation.lat, rideDetails.driverLocation.lng]} icon={bikeIcon} />
+          {/* ✅ Driver Location with Popup */}
+          <Marker 
+            position={[driverLocation.lat, driverLocation.lng]} 
+            icon={driverIcon}
+          >
+            <Popup>
+              <div className="text-center">
+                <p className="font-semibold text-sm">🏍️ Driver</p>
+                <p className="text-xs text-gray-600">{driverName}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  📍 {driverLocation.lat.toFixed(4)}, {driverLocation.lng.toFixed(4)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
           
           {/* Route Line */}
           <Polyline
             positions={[
-              [rideDetails.pickupLocation.lat, rideDetails.pickupLocation.lng],
-              [rideDetails.dropLocation.lat, rideDetails.dropLocation.lng],
+              [pickupLocation.lat, pickupLocation.lng],
+              [dropLocation.lat, dropLocation.lng],
             ]}
             pathOptions={{ color: "blue", weight: 4, opacity: 0.6 }}
           />
@@ -192,7 +285,7 @@ export function LiveTrackingPage() {
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={otherPerson.avatar} />
                   <AvatarFallback className="bg-blue-600 text-white">
-                    {otherPerson.name.split(" ").map(n => n[0]).join("")}
+                    {otherPerson.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -209,10 +302,10 @@ export function LiveTrackingPage() {
                     <span className="text-xs text-white/40">•</span>
                     <span className="text-xs text-white/60">{isDriver ? "Rider" : "Driver"}</span>
                   </div>
-                  {isDriver ? null : (
+                  {!isDriver && 'vehicle' in otherPerson && (
                     <>
-                      <p className="text-xs text-white/60">{rideDetails.driver.vehicle}</p>
-                      <p className="text-xs text-white/40">{rideDetails.driver.number}</p>
+                      <p className="text-xs text-white/60">{otherPerson.vehicle}</p>
+                      <p className="text-xs text-white/40">{otherPerson.number}</p>
                     </>
                   )}
                 </div>
@@ -238,37 +331,41 @@ export function LiveTrackingPage() {
           </Card>
         </div>
 
-        {/* Floating Ride Status Card */}
+        {/* ✅ Floating Ride Status Card - Based on ACTUAL ride.status */}
         <div className="absolute bottom-4 left-4 right-4 z-[1000]">
           <Card className="border-white/10 bg-[#1a1a1a]/95 backdrop-blur-xl">
             <CardContent className="p-4">
-              {rideStatus === "waiting" && (
+              {ride.status === "CONFIRMED" && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Clock className="w-5 h-5 text-yellow-400" />
                       <span className="text-white font-semibold">
-                        {isDriver ? "Rider waiting at pickup" : "Driver arriving in"}
+                        {isDriver ? "Ready to start ride" : "Waiting for driver to start"}
                       </span>
                     </div>
-                    <span className="text-2xl font-bold text-yellow-400">{eta}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-white/60 mb-3">
                     <MapPin className="w-4 h-4" />
-                    <span>Pickup: {rideDetails.route.from}</span>
+                    <span>Pickup: Lat {pickupLocation.lat.toFixed(4)}, Lng {pickupLocation.lng.toFixed(4)}</span>
                   </div>
                   {isDriver && (
                     <Button
                       className="w-full bg-green-600 hover:bg-green-700"
-                      onClick={() => setRideStatus("ongoing")}
+                      onClick={handleStartRide}
                     >
                       Start Ride
                     </Button>
                   )}
+                  {!isDriver && (
+                    <p className="text-sm text-white/60 text-center">
+                      The driver will start the ride shortly
+                    </p>
+                  )}
                 </div>
               )}
 
-              {rideStatus === "ongoing" && (
+              {ride.status === "IN_PROGRESS" && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -276,24 +373,45 @@ export function LiveTrackingPage() {
                       <span className="text-white font-semibold">Ride In Progress</span>
                     </div>
                     <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
-                      {rideDetails.route.distance}
+                      En route
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-white/60 mb-3">
                     <MapPin className="w-4 h-4" />
-                    <span>Destination: {rideDetails.route.to}</span>
+                    <span>Destination: Lat {dropLocation.lat.toFixed(4)}, Lng {dropLocation.lng.toFixed(4)}</span>
                   </div>
                   {isDriver && (
                     <Button
                       className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        setRideStatus("completed")
-                        setTimeout(() => navigate('/my-rides'), 2000)
-                      }}
+                      onClick={handleCompleteRide}
                     >
                       Complete Ride
                     </Button>
                   )}
+                  {!isDriver && (
+                    <p className="text-sm text-white/60 text-center">
+                      Enjoy your ride! You'll be notified when you arrive.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {ride.status === "COMPLETED" && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      <span className="text-white font-semibold">Ride Completed</span>
+                    </div>
+                    <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                      Finished
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-white/60 mb-3">
+                    {isDriver 
+                      ? "Ride completed successfully! Returning to My Rides..."
+                      : "Ride completed! Redirecting to payment..."}
+                  </p>
                 </div>
               )}
 

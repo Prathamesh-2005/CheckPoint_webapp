@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
+import { authService } from "@/services/authService"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -35,15 +36,26 @@ export function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
     if (form.password !== form.confirm) {
       setError("Passwords do not match")
       return
     }
+
     setLoading(true)
-    setTimeout(() => {
+    try {
+      await authService.register({
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
+      })
+      navigate("/dashboard")
+    } catch (err: any) {
+      setError(err.message || "Registration failed")
+    } finally {
       setLoading(false)
-      navigate("/login")
-    }, 1000)
+    }
   }
 
   return (

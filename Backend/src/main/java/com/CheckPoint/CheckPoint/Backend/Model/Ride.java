@@ -1,5 +1,6 @@
 package com.CheckPoint.CheckPoint.Backend.Model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "rides")
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Ride {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -22,6 +24,7 @@ public class Ride {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id", nullable = false)
+    @JsonIgnoreProperties({ "rides", "bookings", "password" })
     private User driver;
 
     @Column(nullable = false)
@@ -47,7 +50,7 @@ public class Ride {
     private RideStatus status;
 
     @Column(nullable = false)
-    private final Integer availableSeats = 1;
+    private Integer availableSeats = 1;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -145,6 +148,10 @@ public class Ride {
 
     public Integer getAvailableSeats() {
         return availableSeats;
+    }
+
+    public void setAvailableSeats(Integer availableSeats) {
+        this.availableSeats = availableSeats;
     }
 
     public LocalDateTime getCreatedAt() {

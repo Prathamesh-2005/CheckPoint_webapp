@@ -1,7 +1,6 @@
 package com.CheckPoint.CheckPoint.Backend.Service;
 
 import com.CheckPoint.CheckPoint.Backend.DTO.UpdateBookingStatusRequest;
-import com.CheckPoint.CheckPoint.Backend.DTO.NotificationDto;
 import com.CheckPoint.CheckPoint.Backend.Model.*;
 import com.CheckPoint.CheckPoint.Backend.Repository.BookingRepository;
 import com.CheckPoint.CheckPoint.Backend.Repository.RideRepository;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,90 +20,134 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final RideRepository rideRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     public BookingService(BookingRepository bookingRepository,
             RideRepository rideRepository,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
         this.rideRepository = rideRepository;
         this.messagingTemplate = messagingTemplate;
+        this.notificationService = notificationService;
     }
 
     @Transactional
     public Booking createBooking(UUID rideId, User passenger) {
+        System.out.println("🎫 Creating booking for ride: " + rideId);
+        System.out.println("   Passenger: " + passenger.getEmail());
+
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new EntityNotFoundException("Ride not found with id: " + rideId));
 
-        if (!ride.getStatus().equals(RideStatus.REQUESTED)) {
+        System.out.println("   Ride driver: " + ride.getDriver().getEmail());
+        System.out.println("   Ride status: " + ride.getStatus());
+        System.out.println("   Available seats: " + ride.getAvailableSeats());
+
+        // Check if passenger is trying to book their own ride
+        if (ride.getDriver().getId().equals(passenger.getId())) {
+            System.out.println("❌ ERROR: Driver trying to book own ride!");
+            throw new IllegalStateException("You cannot book your own ride.");
+        }
+
+        // Check if ride is available
+        if (ride.getStatus() != RideStatus.AVAILABLE) {
+            System.out.println("❌ ERROR: Ride status is " + ride.getStatus() + ", not AVAILABLE");
             throw new IllegalStateException("This ride is no longer available for booking.");
         }
-        if (ride.getDriver().getId().equals(passenger.getId())) {
-            throw new IllegalArgumentException("You cannot book your own ride.");
+
+        // Check if seats available
+        if (ride.getAvailableSeats() <= 0) {
+            System.out.println("❌ ERROR: No seats available!");
+            throw new IllegalStateException("This ride has no available seats.");
         }
-        bookingRepository.findByRideIdAndPassengerId(rideId, passenger.getId()).ifPresent(b -> {
-            throw new IllegalStateException("You have already sent a request for this ride.");
-        });
+
+        // Check if passenger already has a booking
+        Optional<Booking> existingBooking = bookingRepository.findByRideAndPassenger(ride, passenger);
+        if (existingBooking.isPresent()) {
+            System.out.println("❌ ERROR: Passenger already booked this ride!");
+            throw new IllegalStateException("You have already booked this ride.");
+        }
+
+        System.out.println("✅ All validations passed, creating booking...");
 
         Booking newBooking = new Booking();
         newBooking.setRide(ride);
         newBooking.setPassenger(passenger);
-        newBooking.setStatus(BookingStatus.PENDING);
+        newBooking.setStatus(BookingStatus.REQUESTED);
 
         Booking savedBooking = bookingRepository.save(newBooking);
 
-        sendBookingRequestNotification(savedBooking);
+        System.out.println("✅ Booking created successfully: " + savedBooking.getId());
+
+        // Send notification to driver
+        notificationService.createAndSendNotification(
+                ride.getDriver(),
+                NotificationType.BOOKING_REQUEST,
+                "New Booking Request",
+                passenger.getFirstName() + " wants to ride with you",
+                ride.getId(),
+                savedBooking.getId());
 
         return savedBooking;
     }
 
     @Transactional
     public Booking updateBookingStatus(UUID bookingId, UpdateBookingStatusRequest request, User driver) {
+        System.out.println("🔄 Updating booking status: " + bookingId);
+        System.out.println("   Driver: " + driver.getEmail());
+        System.out.println("   Requested status: " + request.getStatus());
+
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + bookingId));
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
 
         Ride ride = booking.getRide();
 
         if (!ride.getDriver().getId().equals(driver.getId())) {
-            throw new AccessDeniedException("You are not authorized to modify this booking.");
+            System.out.println("❌ Unauthorized: Not the driver of this ride");
+            throw new RuntimeException("You are not authorized to modify this booking");
         }
 
-        String notificationMessage;
-        String notificationType;
+        if (booking.getStatus() != BookingStatus.REQUESTED) {
+            System.out.println("❌ Booking already processed");
+            System.out.println("   Current status: " + booking.getStatus());
+            throw new IllegalStateException(
+                    "This booking has already been " + booking.getStatus().name().toLowerCase() +
+                            ". Current status: " + booking.getStatus());
+        }
 
-        if (request.getStatus() == BookingStatus.ACCEPTED) {
-            if (!ride.getStatus().equals(RideStatus.REQUESTED)) {
-                throw new IllegalStateException("This ride has already been confirmed or cancelled.");
-            }
-            booking.setStatus(BookingStatus.ACCEPTED);
+        System.out.println("✅ Booking status valid, updating...");
+
+        // ✅ Fixed: request.getStatus() returns String, so we need to parse it
+        BookingStatus newStatus = BookingStatus.valueOf(request.getStatus().toUpperCase());
+        booking.setStatus(newStatus);
+        Booking savedBooking = bookingRepository.save(booking);
+
+        if (newStatus == BookingStatus.ACCEPTED) {
+            // ✅ Change ride status to CONFIRMED when booking is accepted
             ride.setStatus(RideStatus.CONFIRMED);
+            ride.setAvailableSeats(ride.getAvailableSeats() - 1);
+            rideRepository.save(ride);
 
-            List<Booking> otherPendingBookings = bookingRepository.findByRideAndStatus(ride, BookingStatus.PENDING);
-            for (Booking otherBooking : otherPendingBookings) {
-                if (!otherBooking.getId().equals(booking.getId())) {
-                    otherBooking.setStatus(BookingStatus.REJECTED);
-                    bookingRepository.save(otherBooking);
-                    sendBookingResponseNotification(otherBooking, "BOOKING_REJECTED",
-                            "Another passenger's request for this ride was accepted.");
-                }
-            }
-
-            notificationMessage = "Your ride request has been accepted by " + driver.getFirstName();
-            notificationType = "BOOKING_ACCEPTED";
-
-        } else if (request.getStatus() == BookingStatus.REJECTED) {
-            booking.setStatus(BookingStatus.REJECTED);
-            notificationMessage = "Your ride request was rejected by " + driver.getFirstName();
-            notificationType = "BOOKING_REJECTED";
-        } else {
-            throw new IllegalArgumentException("Invalid status update provided. Can only be 'ACCEPTED' or 'REJECTED'.");
+            notificationService.createAndSendNotification(
+                    booking.getPassenger(),
+                    NotificationType.BOOKING_CONFIRMED,
+                    "Booking Confirmed!",
+                    "Your ride request has been accepted by " + driver.getFirstName(),
+                    ride.getId(),
+                    booking.getId());
+        } else if (newStatus == BookingStatus.REJECTED) {
+            notificationService.createAndSendNotification(
+                    booking.getPassenger(),
+                    NotificationType.BOOKING_REJECTED,
+                    "Booking Rejected",
+                    "Your ride request was declined",
+                    ride.getId(),
+                    booking.getId());
         }
 
-        rideRepository.save(ride);
-        Booking updatedBooking = bookingRepository.save(booking);
-
-        sendBookingResponseNotification(updatedBooking, notificationType, notificationMessage);
-
-        return updatedBooking;
+        System.out.println("✅ Booking updated successfully to: " + newStatus);
+        return savedBooking;
     }
 
     public Booking getBookingByRideAndPassenger(UUID rideId, User passenger) {
@@ -111,42 +155,42 @@ public class BookingService {
                 .orElse(null);
     }
 
+    public List<Booking> getPassengerBookings(User passenger) {
+        return bookingRepository.findByPassengerOrderByCreatedAtDesc(passenger);
+    }
+
     private void sendBookingRequestNotification(Booking booking) {
         User driver = booking.getRide().getDriver();
-        String message = "You have a new ride request from " + booking.getPassenger().getFirstName();
+        String title = "New Ride Request";
+        String message = booking.getPassenger().getFirstName() + " " +
+                booking.getPassenger().getLastName() +
+                " wants to book your ride";
 
-        NotificationDto notification = new NotificationDto(
-                "BOOKING_REQUEST",
+        notificationService.createAndSendNotification(
+                driver,
+                NotificationType.BOOKING_REQUEST,
+                title,
                 message,
-                booking.getId(),
-                booking.getRide().getId());
-
-        try {
-            messagingTemplate.convertAndSendToUser(
-                    driver.getUsername(),
-                    "/queue/notifications",
-                    notification);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+                booking.getRide().getId(),
+                booking.getId());
     }
 
     private void sendBookingResponseNotification(Booking booking, String type, String message) {
         User passenger = booking.getPassenger();
+        NotificationType notificationType = type.equals("BOOKING_ACCEPTED")
+                ? NotificationType.BOOKING_ACCEPTED
+                : NotificationType.BOOKING_REJECTED;
 
-        NotificationDto notification = new NotificationDto(
-                type,
+        String title = type.equals("BOOKING_ACCEPTED")
+                ? "Booking Accepted"
+                : "Booking Rejected";
+
+        notificationService.createAndSendNotification(
+                passenger,
+                notificationType,
+                title,
                 message,
-                booking.getId(),
-                booking.getRide().getId());
-
-        try {
-            messagingTemplate.convertAndSendToUser(
-                    passenger.getUsername(),
-                    "/queue/notifications",
-                    notification);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+                booking.getRide().getId(),
+                booking.getId());
     }
 }

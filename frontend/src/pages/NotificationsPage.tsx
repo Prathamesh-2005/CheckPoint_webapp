@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Bell,
   BellRing,
@@ -26,123 +26,55 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
+import { notificationService } from "@/services/notificationService"
+import { bookingService } from "@/services/bookingService"
 
 interface Notification {
   id: string
-  type: "ride_request" | "booking_confirmed" | "ride_started" | "ride_completed" | "payment" | "system" | "alert"
+  type: string
   title: string
   message: string
-  timestamp: string
   read: boolean
-  priority: "low" | "medium" | "high"
+  createdAt: string
+  rideId?: string
+  bookingId?: string
   actionRequired?: boolean
+  priority?: string
   metadata?: {
-    rideId?: string
     userName?: string
-    userAvatar?: string
-    amount?: string
     location?: string
+    amount?: string
   }
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "ride_request",
-    title: "New Ride Request",
-    message: "Priya Sharma wants to book your ride from Indiranagar to Whitefield",
-    timestamp: "2 mins ago",
-    read: false,
-    priority: "high",
-    actionRequired: true,
-    metadata: {
-      rideId: "R123",
-      userName: "Priya Sharma",
-      userAvatar: "",
-      location: "Indiranagar → Whitefield",
-    },
-  },
-  {
-    id: "2",
-    type: "booking_confirmed",
-    title: "Booking Confirmed",
-    message: "Your ride with Rahul Kumar has been confirmed for 5:30 PM",
-    timestamp: "15 mins ago",
-    read: false,
-    priority: "high",
-    metadata: {
-      rideId: "R124",
-      userName: "Rahul Kumar",
-      userAvatar: "",
-      location: "Koramangala → HSR Layout",
-    },
-  },
-  {
-    id: "3",
-    type: "ride_started",
-    title: "Ride Started",
-    message: "Your driver has started the ride. Track live location",
-    timestamp: "1 hour ago",
-    read: true,
-    priority: "medium",
-    metadata: {
-      rideId: "R125",
-      userName: "Vikram Singh",
-      location: "MG Road",
-    },
-  },
-  {
-    id: "4",
-    type: "payment",
-    title: "Payment Received",
-    message: "You received ₹320 for ride from Indiranagar to Whitefield",
-    timestamp: "2 hours ago",
-    read: true,
-    priority: "medium",
-    metadata: {
-      amount: "₹320",
-      rideId: "R126",
-    },
-  },
-  {
-    id: "5",
-    type: "ride_completed",
-    title: "Ride Completed",
-    message: "Your ride has been completed successfully. Please rate your experience",
-    timestamp: "3 hours ago",
-    read: true,
-    priority: "low",
-    actionRequired: true,
-    metadata: {
-      rideId: "R127",
-      userName: "Amit Patel",
-    },
-  },
-  {
-    id: "6",
-    type: "alert",
-    title: "Verification Required",
-    message: "Please complete your KYC verification to continue offering rides",
-    timestamp: "1 day ago",
-    read: false,
-    priority: "high",
-    actionRequired: true,
-  },
-  {
-    id: "7",
-    type: "system",
-    title: "New Features Available",
-    message: "Check out our new live chat feature for better communication",
-    timestamp: "2 days ago",
-    read: true,
-    priority: "low",
-  },
-]
-
 export function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [processingBooking, setProcessingBooking] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadNotifications()
+    
+    // Listen for real-time notifications
+    const unsubscribe = notificationService.onNotification((notification) => {
+      setNotifications(prev => [notification as any, ...prev])
+    })
+    
+    return () => unsubscribe()
+  }, [])
+
+  const loadNotifications = async () => {
+    try {
+      const data = await notificationService.getNotifications()
+      setNotifications(data as any)
+    } catch (error) {
+      console.error('Failed to load notifications:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -158,18 +90,81 @@ export function NotificationsPage() {
     return matchesSearch
   })
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    )
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id)
+      setNotifications(prev => 
+        prev.map(n => n.id === id ? { ...n, read: true } : n)
+      )
+    } catch (error) {
+      console.error('Failed to mark as read:', error)
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  const markAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead()
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    } catch (error) {
+      console.error('Failed to mark all as read:', error)
+    }
   }
 
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
+  const deleteNotification = async (id: string) => {
+    try {
+      await notificationService.deleteNotification(id)
+      setNotifications(prev => prev.filter(n => n.id !== id))
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+    }
+  }
+
+  const handleAcceptBooking = async (bookingId: string, notificationId: string) => {
+    setProcessingBooking(bookingId)
+    
+    // ✅ Remove notification IMMEDIATELY to prevent double-clicks
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+    
+    try {
+      await bookingService.acceptBooking(bookingId)
+      alert('Booking accepted successfully!')
+    } catch (error: any) {
+      console.error('Accept booking error:', error)
+      
+      // If it failed, show error but don't add notification back (already processed)
+      if (error.message?.includes('already been confirmed')) {
+        alert('This booking was already processed.')
+      } else {
+        alert(error.message || 'Failed to accept booking')
+        // Optionally: refresh notifications to get latest state
+        await loadNotifications()
+      }
+    } finally {
+      setProcessingBooking(null)
+    }
+  }
+
+  const handleRejectBooking = async (bookingId: string, notificationId: string) => {
+    setProcessingBooking(bookingId)
+    
+    // ✅ Remove notification IMMEDIATELY to prevent double-clicks
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+    
+    try {
+      await bookingService.rejectBooking(bookingId)
+      alert('Booking rejected')
+    } catch (error: any) {
+      console.error('Reject booking error:', error)
+      
+      if (error.message?.includes('already been confirmed')) {
+        alert('This booking was already processed.')
+      } else {
+        alert(error.message || 'Failed to reject booking')
+        await loadNotifications()
+      }
+    } finally {
+      setProcessingBooking(null)
+    }
   }
 
   const getNotificationIcon = (type: string) => {
@@ -214,7 +209,7 @@ export function NotificationsPage() {
     }
   }
 
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityBadge = (priority?: string) => {
     switch (priority) {
       case "high":
         return <Badge variant="outline" className="border-red-500/50 bg-red-500/10 text-red-400 text-xs">High</Badge>
@@ -382,16 +377,27 @@ export function NotificationsPage() {
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-1 text-xs text-white/40">
                                         <Clock className="w-3 h-3" />
-                                        <span>{notification.timestamp}</span>
+                                        <span>{new Date(notification.createdAt).toLocaleString()}</span>
                                       </div>
 
-                                      {notification.actionRequired && (
+                                      {notification.actionRequired && notification.bookingId && (
                                         <div className="flex gap-2">
-                                          <Button size="sm" variant="outline" className="h-7 border-white/20 text-white/60 hover:text-white">
-                                            Decline
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="h-7 border-white/20 text-white/60 hover:text-white"
+                                            onClick={() => handleRejectBooking(notification.bookingId!, notification.id)}
+                                            disabled={processingBooking === notification.bookingId}
+                                          >
+                                            {processingBooking === notification.bookingId ? 'Processing...' : 'Decline'}
                                           </Button>
-                                          <Button size="sm" className="h-7 bg-blue-600 hover:bg-blue-700 text-white">
-                                            Accept
+                                          <Button 
+                                            size="sm" 
+                                            className="h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                                            onClick={() => handleAcceptBooking(notification.bookingId!, notification.id)}
+                                            disabled={processingBooking === notification.bookingId}
+                                          >
+                                            {processingBooking === notification.bookingId ? 'Processing...' : 'Accept'}
                                           </Button>
                                         </div>
                                       )}

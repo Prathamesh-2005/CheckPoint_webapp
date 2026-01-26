@@ -24,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { rideService } from "@/services/rideService"
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -72,86 +73,27 @@ function generateMockRiders(centerLat: number, centerLng: number, count: number 
   return riders
 }
 
-const availableRides = [
-  {
-    id: 1,
-    driver: {
-      name: "Rahul Kumar",
-      rating: 4.8,
-      avatar: "",
-      trips: 124,
-    },
-    from: "Indiranagar",
-    to: "Whitefield",
-    departureTime: "Today, 5:30 PM",
-    price: "₹320",
-    availableSeats: 2,
-    distance: "12.5 km",
-    duration: "35 min",
-    carModel: "Honda City",
-  },
-  {
-    id: 2,
-    driver: {
-      name: "Priya Sharma",
-      rating: 4.9,
-      avatar: "",
-      trips: 89,
-    },
-    from: "Indiranagar",
-    to: "Electronic City",
-    departureTime: "Today, 6:00 PM",
-    price: "₹280",
-    availableSeats: 1,
-    distance: "10.2 km",
-    duration: "28 min",
-    carModel: "Maruti Swift",
-  },
-  {
-    id: 3,
-    driver: {
-      name: "Vikram Singh",
-      rating: 4.7,
-      avatar: "",
-      trips: 156,
-    },
-    from: "Koramangala",
-    to: "Whitefield",
-    departureTime: "Today, 5:45 PM",
-    price: "₹350",
-    availableSeats: 3,
-    distance: "14.8 km",
-    duration: "42 min",
-    carModel: "Toyota Innova",
-  },
-]
-
-const mapContainerStyle = {
-  width: "100%",
-  height: "400px",
-}
-
-const defaultCenter = {
-  lat: 12.9716,
-  lng: 77.5946,
-}
-
 export function FindRidePage() {
   const [fromLocation, setFromLocation] = useState("")
   const [toLocation, setToLocation] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [loadingLocation, setLoadingLocation] = useState(false)
-  const [mapCenter, setMapCenter] = useState(defaultCenter)
+  const [mapCenter, setMapCenter] = useState({
+    lat: 12.9716,
+    lng: 77.5946,
+  })
   const [fromCoords, setFromCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [toCoords, setToCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [route, setRoute] = useState<Array<[number, number]>>([])
   const [nearbyRiders, setNearbyRiders] = useState<Array<{ id: number; lat: number; lng: number }>>([])
+  const [availableRides, setAvailableRides] = useState<any[]>([])
 
   const mapRef = useRef<L.Map | null>(null)
   const navigate = useNavigate()
 
   const handleGetCurrentLocation = () => {
+    console.log('📍 Getting current location...')
     setLoadingLocation(true)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -160,54 +102,91 @@ export function FindRidePage() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           }
+          console.log('✅ Current location obtained:', coords)
           setFromCoords(coords)
           setMapCenter(coords)
           setFromLocation("Current Location")
           setLoadingLocation(false)
         },
         (error) => {
-          console.error("Error getting location:", error)
+          console.error("❌ Error getting location:", error)
           setLoadingLocation(false)
         }
       )
+    } else {
+      console.error('❌ Geolocation not supported')
     }
   }
 
-  const handleSearchRides = useCallback(() => {
-    if (!fromCoords || !toCoords) return
+  const handleSearchRides = useCallback(async () => {
+    if (!fromCoords || !toCoords) {
+      console.log('❌ Search failed: Missing coordinates')
+      console.log('fromCoords:', fromCoords)
+      console.log('toCoords:', toCoords)
+      return
+    }
+    
     setIsSearching(true)
+    console.log('🔍 Starting ride search...')
+    console.log('Your pickup:', fromCoords)
+    console.log('Your destination:', toCoords)
     
     const mockRiders = generateMockRiders(toCoords.lat, toCoords.lng)
-    console.log('Generated riders:', mockRiders)
     setNearbyRiders(mockRiders)
+    console.log('📍 Generated mock riders:', mockRiders.length)
     
-    fetch(
-      `https://router.project-osrm.org/route/v1/driving/${fromCoords.lng},${fromCoords.lat};${toCoords.lng},${toCoords.lat}?overview=full&geometries=geojson`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.routes && data.routes.length > 0) {
-          const coords = data.routes[0].geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng])
-          setRoute(coords)
-        }
-        setTimeout(() => {
-          setIsSearching(false)
-          setShowResults(true)
-        }, 1500)
+    try {
+      // 🔧 FIXED: Pass all 5 parameters (startLat, startLng, destLat, destLng, radius)
+      const rides = await rideService.searchRides(
+        fromCoords.lat,   // Your pickup latitude
+        fromCoords.lng,   // Your pickup longitude
+        toCoords.lat,     // Your destination latitude
+        toCoords.lng,     // Your destination longitude
+        5.0               // 5km radius
+      )
+      
+      console.log('✅ Search successful!')
+      console.log('📦 Available rides:', rides)
+      console.log('🚗 Total rides found:', rides.length)
+      
+      setAvailableRides(rides)
+      
+      fetch(
+        `https://router.project-osrm.org/route/v1/driving/${fromCoords.lng},${fromCoords.lat};${toCoords.lng},${toCoords.lat}?overview=full&geometries=geojson`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          console.log('🗺️ Route data received:', data)
+          if (data.routes && data.routes.length > 0) {
+            const coords = data.routes[0].geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng])
+            setRoute(coords)
+            console.log('📍 Route coordinates calculated:', coords.length, 'points')
+          }
+        })
+        .catch(err => console.error('❌ Route error:', err))
+      
+      setShowResults(true)
+      console.log('✨ Results displayed')
+    } catch (error) {
+      console.error('❌ Search failed:', error)
+      console.error('Error details:', {
+        message: (error as any).message,
+        stack: (error as any).stack
       })
-      .catch(() => {
-        setIsSearching(false)
-        setShowResults(true)
-      })
+    } finally {
+      setIsSearching(false)
+    }
   }, [fromCoords, toCoords])
 
   const handleFromLocationSelect = useCallback((coords: { lat: number; lng: number }, address: string) => {
+    console.log('📍 From location selected:', { coords, address })
     setFromCoords(coords)
     setMapCenter(coords)
     setFromLocation(address)
   }, [])
 
   const handleToLocationSelect = useCallback((coords: { lat: number; lng: number }, address: string) => {
+    console.log('📍 To location selected:', { coords, address })
     setToCoords(coords)
     setToLocation(address)
   }, [])
@@ -348,7 +327,10 @@ export function FindRidePage() {
                     <MapContainer
                       center={[mapCenter.lat, mapCenter.lng]}
                       zoom={12}
-                      style={mapContainerStyle}
+                      style={{
+                        width: "100%",
+                        height: "400px",
+                      }}
                       ref={mapRef}
                     >
                       <TileLayer
@@ -393,91 +375,73 @@ export function FindRidePage() {
                     </CardHeader>
                     <CardContent className="p-3">
                       <div className="space-y-2">
-                        {availableRides.map((ride) => (
-                          <Card
-                            key={ride.id}
-                            className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
-                            onClick={() => navigate(`/ride/${ride.id}`)}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex flex-col sm:flex-row gap-3">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <Avatar className="h-10 w-10 flex-shrink-0">
-                                    <AvatarImage src={ride.driver.avatar} />
-                                    <AvatarFallback className="bg-blue-600 text-white text-xs">
-                                      {ride.driver.name.split(" ").map(n => n[0]).join("")}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                      <h3 className="font-semibold text-white text-sm">{ride.driver.name}</h3>
-                                      <div className="flex items-center gap-1">
-                                        <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-                                        <span className="text-xs text-white/60">{ride.driver.rating}</span>
+                        {availableRides.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <p className="text-white/60">No rides found</p>
+                            <p className="text-xs text-white/40 mt-1">Try searching in a different area</p>
+                          </div>
+                        ) : (
+                          availableRides.map((ride) => (
+                            <Card
+                              key={ride.id}
+                              className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                              onClick={() => navigate(`/ride/${ride.id}`)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                  <div className="flex items-start gap-3 flex-1">
+                                    <Avatar className="h-10 w-10 flex-shrink-0">
+                                      <AvatarImage src={ride.driver?.profileImageUrl} />
+                                      <AvatarFallback className="bg-blue-600 text-white text-xs">
+                                        {ride.driver?.firstName?.[0]}{ride.driver?.lastName?.[0]}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <h3 className="font-semibold text-white text-sm">
+                                          {ride.driver?.firstName} {ride.driver?.lastName}
+                                        </h3>
+                                      </div>
+                                      <p className="text-xs text-white/40 mb-1.5">
+                                        {ride.status} • {new Date(ride.departureTime).toLocaleString()}
+                                      </p>
+                                      
+                                      <div className="flex items-center gap-2 text-xs text-white/60 mb-1.5">
+                                        <MapPin className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                        <span className="truncate">Lat: {ride.startLatitude.toFixed(4)}</span>
+                                        <ChevronRight className="w-3 h-3 flex-shrink-0" />
+                                        <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                        <span className="truncate">Lat: {ride.endLatitude.toFixed(4)}</span>
                                       </div>
                                     </div>
-                                    <p className="text-xs text-white/40 mb-1.5">{ride.driver.trips} trips • {ride.carModel}</p>
-                                    
-                                    <div className="flex items-center gap-2 text-xs text-white/60 mb-1.5">
-                                      <MapPin className="w-3 h-3 text-green-500 flex-shrink-0" />
-                                      <span className="truncate">{ride.from}</span>
-                                      <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                                      <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />
-                                      <span className="truncate">{ride.to}</span>
-                                    </div>
+                                  </div>
 
-                                    <div className="flex items-center gap-3 text-xs text-white/40 flex-wrap">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        <span>{ride.departureTime}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Navigation className="w-3 h-3" />
-                                        <span>{ride.distance} • {ride.duration}</span>
-                                      </div>
+                                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-3 sm:pt-0 sm:pl-3">
+                                    <div className="text-right">
+                                      <div className="text-xl font-bold text-white">₹{ride.price}</div>
+                                      <p className="text-xs text-white/40">per seat</p>
+                                    </div>
+                                    <div className="flex sm:flex-col items-center gap-2">
+                                      <Badge variant="outline" className="border-white/20 text-white/60 text-xs">
+                                        {ride.availableSeats} seats
+                                      </Badge>
+                                      <Button
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          navigate(`/ride/${ride.id}`)
+                                        }}
+                                      >
+                                        View
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
-
-                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-3 sm:pt-0 sm:pl-3">
-                                  <div className="text-right">
-                                    <div className="text-xl font-bold text-white">{ride.price}</div>
-                                    <p className="text-xs text-white/40">per seat</p>
-                                  </div>
-                                  <div className="flex sm:flex-col items-center gap-2">
-                                    <Badge
-                                      variant="outline"
-                                      className="border-white/20 text-white/60 text-xs"
-                                    >
-                                      {ride.availableSeats} seats
-                                    </Badge>
-                                    <Button
-                                      size="sm"
-                                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        navigate('/messages')
-                                      }}
-                                    >
-                                      Request
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="border-white/20 text-white/60 hover:text-white hover:bg-white/10"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        navigate('/messages')
-                                      }}
-                                    >
-                                      <MessageCircle className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
                       </div>
                     </CardContent>
                   </Card>

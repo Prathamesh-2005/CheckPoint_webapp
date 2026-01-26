@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -22,85 +22,66 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { Loader2 } from "lucide-react"
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
-
-// Mock ride data (in real app, fetch by ID)
-const mockRideDetails = {
-  id: "1",
-  driver: {
-    id: "driver123",
-    name: "Rahul Kumar",
-    rating: 4.8,
-    totalTrips: 124,
-    avatar: "",
-    phoneNumber: "+91 98765 43210",
-    verified: true,
-    memberSince: "Jan 2023",
-    bio: "Safe and punctual rider. Love long rides and meeting new people!",
-  },
-  vehicle: {
-    model: "Royal Enfield Classic 350",
-    number: "KA 01 AB 1234",
-    color: "Black",
-    year: 2022,
-  },
-  route: {
-    from: "Indiranagar Metro Station, Bangalore",
-    to: "Whitefield IT Park, Bangalore",
-    fromCoords: { lat: 12.9716, lng: 77.5946 },
-    toCoords: { lat: 12.9698, lng: 77.7499 },
-    distance: "12.5 km",
-    duration: "35 mins",
-    stops: ["Marathahalli Junction", "Kundalahalli Gate"],
-  },
-  schedule: {
-    date: "Today",
-    time: "5:30 PM",
-    flexibleTime: "± 15 mins",
-  },
-  pricing: {
-    amount: 320,
-    currency: "₹",
-    breakdown: {
-      baseFare: 250,
-      platformFee: 50,
-      gst: 20,
-    },
-  },
-  seats: {
-    available: 1,
-    total: 1,
-  },
-  preferences: {
-    luggage: "Small backpack only",
-    smoking: false,
-    music: true,
-    chat: "Moderate",
-  },
-  policies: {
-    cancellation: "Free cancellation up to 2 hours before departure",
-    waiting: "Driver will wait for 5 minutes",
-    helmet: "Provided",
-  },
-}
+import { rideService } from "@/services/rideService"
+import { bookingService } from "@/services/bookingService"
 
 export function RideDetailsPage() {
   const navigate = useNavigate()
   const { rideId } = useParams()
   const [isBooking, setIsBooking] = useState(false)
+  const [ride, setRide] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
-  const ride = mockRideDetails
+  useEffect(() => {
+    loadRideDetails()
+  }, [rideId])
 
-  const handleBookRide = () => {
+  const loadRideDetails = async () => {
+    try {
+      const data = await rideService.getRideById(rideId!)
+      setRide(data)
+    } catch (error) {
+      console.error("Failed to load ride:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBookRide = async () => {
     setIsBooking(true)
-    setTimeout(() => {
+    try {
+      await bookingService.requestRide(rideId!)
+      setShowSuccessModal(true)
+      setTimeout(() => {
+        setShowSuccessModal(false)
+        navigate('/my-rides')
+      }, 2000)
+    } catch (error: any) {
+      alert(error.message || "Failed to book ride")
+    } finally {
       setIsBooking(false)
-      // Navigate to payment page
-      navigate(`/ride/${rideId}/payment`)
-    }, 1500)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    )
+  }
+
+  if (!ride) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <p className="text-white">Ride not found</p>
+      </div>
+    )
   }
 
   return (
@@ -134,55 +115,22 @@ export function RideDetailsPage() {
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={ride.driver.avatar} />
+                    <AvatarImage src={ride.driver?.profileImageUrl} />
                     <AvatarFallback className="bg-blue-600 text-white text-lg">
-                      {ride.driver.name.split(" ").map(n => n[0]).join("")}
+                      {ride.driver?.firstName?.[0]}{ride.driver?.lastName?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h2 className="text-xl font-bold text-white">{ride.driver.name}</h2>
-                          {ride.driver.verified && (
-                            <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Verified
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-white/60">
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                            <span className="font-semibold">{ride.driver.rating}</span>
-                          </div>
-                          <span>•</span>
-                          <span>{ride.driver.totalTrips} trips</span>
-                          <span>•</span>
-                          <span>Since {ride.driver.memberSince}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-xl font-bold text-white">
+                        {ride.driver?.firstName} {ride.driver?.lastName}
+                      </h2>
+                      <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
                     </div>
-                    <p className="text-sm text-white/70 mb-4">{ride.driver.bio}</p>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-white/20 text-white/80"
-                        onClick={() => navigate('/messages')}
-                      >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        Message
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-white/20 text-white/80"
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call
-                      </Button>
-                    </div>
+                    <p className="text-sm text-white/60">Driver</p>
                   </div>
                 </div>
               </CardContent>
@@ -207,34 +155,18 @@ export function RideDetailsPage() {
                     <div className="flex-1 space-y-6">
                       <div>
                         <p className="text-xs text-white/40 mb-1">Pickup</p>
-                        <p className="text-white font-medium">{ride.route.from}</p>
+                        <p className="text-white font-medium">
+                          Lat: {ride.startLatitude}, Lng: {ride.startLongitude}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-white/40 mb-1">Drop</p>
-                        <p className="text-white font-medium">{ride.route.to}</p>
+                        <p className="text-white font-medium">
+                          Lat: {ride.endLatitude}, Lng: {ride.endLongitude}
+                        </p>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-white/60 text-sm">{ride.route.distance}</p>
-                      <p className="text-white/40 text-xs">{ride.route.duration}</p>
                     </div>
                   </div>
-
-                  {ride.route.stops.length > 0 && (
-                    <>
-                      <Separator className="bg-white/10" />
-                      <div>
-                        <p className="text-xs text-white/60 mb-2">Stops along the way</p>
-                        <div className="flex flex-wrap gap-2">
-                          {ride.route.stops.map((stop, index) => (
-                            <Badge key={index} variant="outline" className="border-white/20 text-white/60">
-                              {stop}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -248,100 +180,16 @@ export function RideDetailsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-white/40 mb-1">Date</p>
-                    <p className="text-white font-semibold">{ride.schedule.date}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 mb-1">Time</p>
-                    <p className="text-white font-semibold">{ride.schedule.time}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 mb-1">Flexibility</p>
-                    <p className="text-white font-semibold">{ride.schedule.flexibleTime}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Vehicle Info */}
-            <Card className="border-white/5 bg-white/5 backdrop-blur-sm">
-              <CardHeader className="border-b border-white/5">
-                <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-                  🏍️ Vehicle Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-white/40 mb-1">Model</p>
-                    <p className="text-white font-semibold">{ride.vehicle.model}</p>
+                    <p className="text-xs text-white/40 mb-1">Date & Time</p>
+                    <p className="text-white font-semibold">
+                      {new Date(ride.departureTime).toLocaleString()}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-white/40 mb-1">Number</p>
-                    <p className="text-white font-semibold">{ride.vehicle.number}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 mb-1">Color</p>
-                    <p className="text-white font-semibold">{ride.vehicle.color}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 mb-1">Year</p>
-                    <p className="text-white font-semibold">{ride.vehicle.year}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Preferences & Policies */}
-            <Card className="border-white/5 bg-white/5 backdrop-blur-sm">
-              <CardHeader className="border-b border-white/5">
-                <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Info className="w-5 h-5 text-blue-400" />
-                  Ride Preferences & Policies
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-white mb-2">Preferences</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-white/70">Music: {ride.preferences.music ? 'Allowed' : 'No'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-white/70">Smoking: {ride.preferences.smoking ? 'Allowed' : 'Not allowed'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-white/70">Luggage: {ride.preferences.luggage}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-white/70">Chat level: {ride.preferences.chat}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="bg-white/10" />
-
-                <div>
-                  <p className="text-sm font-semibold text-white mb-2">Policies</p>
-                  <div className="space-y-2 text-sm text-white/70">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>{ride.policies.cancellation}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>{ride.policies.waiting}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>Helmet: {ride.policies.helmet}</span>
-                    </div>
+                    <p className="text-xs text-white/40 mb-1">Status</p>
+                    <p className="text-white font-semibold">{ride.status}</p>
                   </div>
                 </div>
               </CardContent>
@@ -355,27 +203,8 @@ export function RideDetailsPage() {
                 <div className="mb-4">
                   <div className="flex items-baseline justify-between mb-2">
                     <div>
-                      <span className="text-3xl font-bold text-white">{ride.pricing.currency}{ride.pricing.amount}</span>
+                      <span className="text-3xl font-bold text-white">₹{ride.price}</span>
                       <span className="text-white/60 text-sm ml-2">per seat</span>
-                    </div>
-                  </div>
-                  <div className="text-sm text-white/60">
-                    <div className="flex justify-between mb-1">
-                      <span>Base fare</span>
-                      <span>₹{ride.pricing.breakdown.baseFare}</span>
-                    </div>
-                    <div className="flex justify-between mb-1">
-                      <span>Platform fee</span>
-                      <span>₹{ride.pricing.breakdown.platformFee}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>GST (18%)</span>
-                      <span>₹{ride.pricing.breakdown.gst}</span>
-                    </div>
-                    <Separator className="bg-white/10 my-2" />
-                    <div className="flex justify-between font-semibold text-white">
-                      <span>Total</span>
-                      <span>₹{ride.pricing.amount}</span>
                     </div>
                   </div>
                 </div>
@@ -385,13 +214,13 @@ export function RideDetailsPage() {
                     <Users className="w-4 h-4" />
                     <span className="font-semibold">Seats Available</span>
                   </div>
-                  <p className="text-white text-lg font-bold">{ride.seats.available} of {ride.seats.total}</p>
+                  <p className="text-white text-lg font-bold">{ride.availableSeats}</p>
                 </div>
 
                 <Button
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold mb-3"
                   onClick={handleBookRide}
-                  disabled={isBooking || ride.seats.available === 0}
+                  disabled={isBooking || ride.availableSeats === 0}
                 >
                   {isBooking ? 'Booking...' : 'Book This Ride'}
                 </Button>
@@ -404,10 +233,6 @@ export function RideDetailsPage() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-green-500" />
                     <span>Pay after ride completion</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-yellow-500" />
-                    <span>{ride.policies.cancellation}</span>
                   </div>
                 </div>
               </CardContent>

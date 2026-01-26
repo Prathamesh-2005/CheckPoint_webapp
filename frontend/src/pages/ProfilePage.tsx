@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   User,
   Mail,
@@ -31,19 +31,45 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ModeToggle } from "@/components/mode-toggle"
+import { authService } from "@/services/authService"
 
 export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   
   const [profile, setProfile] = useState({
-    firstName: "Prateek",
-    lastName: "Kumar",
-    email: "prateek@checkpoint.com",
-    phone: "+91 98765 43210",
-    city: "Bangalore",
-    bio: "Love riding and meeting new people. Safe driver with 5+ years of experience.",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    city: "",
+    bio: "",
     avatar: "",
+  })
+
+  useEffect(() => {
+    const user = authService.getCurrentUser()
+    if (user) {
+      setProfile({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: "",
+        city: "",
+        bio: "",
+        avatar: user.profileImageUrl || "",
+      })
+    }
+  }, [])
+
+  // Remove hardcoded stats, these should come from backend
+  const [stats, setStats] = useState({
+    totalRides: 0,
+    rating: 0,
+    totalEarnings: "₹0",
+    joinedDate: "Jan 2024",
+    completionRate: 0,
+    responseTime: "N/A",
   })
 
   const [settings, setSettings] = useState({
@@ -64,15 +90,6 @@ export function ProfilePage() {
       theme: "dark",
     },
   })
-
-  const stats = {
-    totalRides: 127,
-    rating: 4.8,
-    totalEarnings: "₹45,280",
-    joinedDate: "Jan 2023",
-    completionRate: 98,
-    responseTime: "2 min",
-  }
 
   const handleSaveProfile = () => {
     setIsSaving(true)

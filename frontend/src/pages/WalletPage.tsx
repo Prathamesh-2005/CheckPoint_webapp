@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Wallet,
   CreditCard,
@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { paymentService } from "@/services/paymentService"
 
 interface Transaction {
   id: string
@@ -42,105 +43,43 @@ interface Transaction {
   riderName?: string
 }
 
-const mockTransactions: Transaction[] = [
-  {
-    id: "1",
-    type: "credit",
-    amount: 320,
-    description: "Ride earning from Indiranagar to Whitefield",
-    date: "2024-01-15 14:30",
-    status: "completed",
-    category: "Ride Earning",
-    riderId: "RK123",
-    riderName: "Rahul Kumar",
-  },
-  {
-    id: "2",
-    type: "debit",
-    amount: 280,
-    description: "Ride payment to Electronic City",
-    date: "2024-01-15 09:15",
-    status: "completed",
-    category: "Ride Payment",
-    riderId: "PS456",
-    riderName: "Priya Sharma",
-  },
-  {
-    id: "3",
-    type: "credit",
-    amount: 150,
-    description: "Refund for cancelled ride",
-    date: "2024-01-14 18:45",
-    status: "completed",
-    category: "Refund",
-  },
-  {
-    id: "4",
-    type: "debit",
-    amount: 500,
-    description: "Wallet top-up via UPI",
-    date: "2024-01-14 12:00",
-    status: "pending",
-    category: "Top-up",
-  },
-  {
-    id: "5",
-    type: "credit",
-    amount: 450,
-    description: "Ride earning from MG Road to Airport",
-    date: "2024-01-13 16:20",
-    status: "completed",
-    category: "Ride Earning",
-    riderId: "VM789",
-    riderName: "Vikram Singh",
-  },
-  {
-    id: "6",
-    type: "debit",
-    amount: 1000,
-    description: "Withdrawal to bank account",
-    date: "2024-01-12 10:30",
-    status: "completed",
-    category: "Withdrawal",
-  },
-]
-
-const paymentMethods = [
-  {
-    id: "1",
-    type: "UPI",
-    name: "Google Pay",
-    identifier: "user@okaxis",
-    isDefault: true,
-    icon: "📱",
-  },
-  {
-    id: "2",
-    type: "Card",
-    name: "HDFC Debit Card",
-    identifier: "**** **** **** 4532",
-    isDefault: false,
-    icon: "💳",
-  },
-  {
-    id: "3",
-    type: "Bank",
-    name: "HDFC Bank",
-    identifier: "****6789",
-    isDefault: false,
-    icon: "🏦",
-  },
-]
-
 export function WalletPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [pendingEarnings, setPendingEarnings] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   const walletBalance = 2450
   const totalEarnings = 8920
   const totalSpent = 6470
 
-  const filteredTransactions = mockTransactions.filter((transaction) => {
+  useEffect(() => {
+    loadTransactions()
+    loadEarnings()
+  }, [])
+
+  const loadTransactions = async () => {
+    try {
+      const data = await paymentService.getTransactionHistory()
+      setTransactions(data)
+    } catch (error) {
+      console.error("Failed to load transactions:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadEarnings = async () => {
+    try {
+      const data = await paymentService.getPendingEarnings()
+      setPendingEarnings(data.pendingEarnings)
+    } catch (error) {
+      console.error("Failed to load earnings:", error)
+    }
+  }
+
+  const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch = 
       transaction.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       transaction.category.toLowerCase().includes(searchQuery.toLowerCase())

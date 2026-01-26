@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react"
 import React from "react"
+import { useNavigate } from "react-router-dom"
 import {
   MapPin,
   Calendar,
@@ -11,6 +12,7 @@ import {
   Loader2,
   X,
   CheckCircle2,
+  LocateFixed,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +29,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { ModeToggle } from "@/components/mode-toggle"
+import { rideService } from "@/services/rideService"
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -46,6 +49,7 @@ const defaultCenter = {
 }
 
 export function OfferRidePage() {
+  const navigate = useNavigate()
   const [fromLocation, setFromLocation] = useState("")
   const [toLocation, setToLocation] = useState("")
   const [fromCoords, setFromCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -63,6 +67,7 @@ export function OfferRidePage() {
   const [stops, setStops] = useState<string[]>([])
   const [newStop, setNewStop] = useState("")
   const [isLoadingRoute, setIsLoadingRoute] = useState(false)
+  const [loadingLocation, setLoadingLocation] = useState(false)
 
   const mapRef = useRef<L.Map | null>(null)
 
@@ -115,16 +120,40 @@ export function OfferRidePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!fromCoords || !toCoords) {
+      alert("Please select both locations")
+      return
+    }
+
     setIsSubmitting(true)
 
-    setTimeout(() => {
+    try {
+      const rideData = {
+        startLatitude: fromCoords.lat,
+        startLongitude: fromCoords.lng,
+        endLatitude: toCoords.lat,
+        endLongitude: toCoords.lng,
+        departureTime: `${date}T${time}:00`,
+        price: parseFloat(price),
+      }
+
+      console.log('Submitting ride data:', rideData);
+
+      await rideService.createRide(rideData)
+      
       setIsSubmitting(false)
       setShowSuccess(true)
       setTimeout(() => {
         setShowSuccess(false)
         resetForm()
-      }, 3000)
-    }, 2000)
+        navigate("/my-rides")
+      }, 2000)
+    } catch (error: any) {
+      console.error("Failed to create ride:", error)
+      alert(`Failed to create ride: ${error.message || 'Unknown error'}`)
+      setIsSubmitting(false)
+    }
   }
 
   const resetForm = () => {
@@ -140,6 +169,32 @@ export function OfferRidePage() {
     setVehicleNumber("")
     setNotes("")
     setStops([])
+  }
+
+  const handleGetCurrentLocation = () => {
+    setLoadingLocation(true)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }
+          setFromCoords(coords)
+          setMapCenter(coords)
+          setFromLocation("Current Location")
+          setLoadingLocation(false)
+        },
+        (error) => {
+          console.error("Error getting location:", error)
+          alert("Failed to get current location")
+          setLoadingLocation(false)
+        }
+      )
+    } else {
+      alert("Geolocation is not supported by this browser")
+      setLoadingLocation(false)
+    }
   }
 
   function MapUpdater({ center }: { center: { lat: number; lng: number } }) {
@@ -189,6 +244,26 @@ export function OfferRidePage() {
                           placeholder="Enter starting location"
                           icon={<MapPin className="w-4 h-4 text-green-500" />}
                         />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                          onClick={handleGetCurrentLocation}
+                          disabled={loadingLocation}
+                        >
+                          {loadingLocation ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                              Getting location...
+                            </>
+                          ) : (
+                            <>
+                              <LocateFixed className="w-3 h-3 mr-2" />
+                              Use current location
+                            </>
+                          )}
+                        </Button>
                       </div>
 
                       <div className="space-y-2">
@@ -505,11 +580,9 @@ const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     onChange(val)
-    
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
-
     if (val.length > 2) {
       setIsSearching(true)
       searchTimeoutRef.current = setTimeout(() => {

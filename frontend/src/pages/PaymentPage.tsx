@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -16,66 +16,125 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { paymentService } from "@/services/paymentService"
+import { rideService } from "@/services/rideService"
+
+const paymentMethods = [
+  {
+    id: "upi",
+    name: "UPI",
+    description: "Pay using any UPI app",
+    icon: Smartphone,
+    bg: "bg-purple-500/10",
+    color: "text-purple-400",
+  },
+  {
+    id: "card",
+    name: "Credit/Debit Card",
+    description: "Visa, Mastercard, Amex, Rupay",
+    icon: CreditCard,
+    bg: "bg-blue-500/10",
+    color: "text-blue-400",
+  },
+  {
+    id: "wallet",
+    name: "Wallet",
+    description: "Pay from your wallet balance",
+    icon: Wallet,
+    bg: "bg-green-500/10",
+    color: "text-green-400",
+    balance: "500",
+  },
+  {
+    id: "netbanking",
+    name: "Net Banking",
+    description: "Pay using internet banking",
+    icon: Building2,
+    bg: "bg-orange-500/10",
+    color: "text-orange-400",
+  },
+]
 
 export function PaymentPage() {
   const navigate = useNavigate()
   const { rideId } = useParams()
-  const [selectedMethod, setSelectedMethod] = useState("wallet")
+  const [selectedMethod, setSelectedMethod] = useState("upi")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [rideDetails, setRideDetails] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const rideDetails = {
-    from: "Indiranagar Metro Station",
-    to: "Whitefield IT Park",
-    date: "Today",
-    time: "5:30 PM",
-    driverName: "Rahul Kumar",
-    amount: 320,
+  useEffect(() => {
+    loadRideDetails()
+  }, [rideId])
+
+  const loadRideDetails = async () => {
+    try {
+      const data = await rideService.getRideById(rideId!)
+
+      // ✅ Check if ride is completed before allowing payment
+      if (data.status !== "COMPLETED") {
+        alert("Payment is only available after ride completion")
+        navigate(`/ride/${rideId}`)
+        return
+      }
+
+      setRideDetails(data)
+    } catch (error) {
+      console.error("Failed to load ride:", error)
+      navigate("/my-rides")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const paymentMethods = [
-    {
-      id: "wallet",
-      name: "CheckPoint Wallet",
-      icon: Wallet,
-      balance: 2450,
-      description: "Pay using wallet balance",
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
-    },
-    {
-      id: "upi",
-      name: "UPI / QR Code",
-      icon: Smartphone,
-      description: "Google Pay, PhonePe, Paytm",
-      color: "text-green-400",
-      bg: "bg-green-500/10",
-    },
-    {
-      id: "card",
-      name: "Credit / Debit Card",
-      icon: CreditCard,
-      description: "Visa, Mastercard, Rupay",
-      color: "text-purple-400",
-      bg: "bg-purple-500/10",
-    },
-    {
-      id: "netbanking",
-      name: "Net Banking",
-      icon: Building2,
-      description: "All major banks supported",
-      color: "text-cyan-400",
-      bg: "bg-cyan-500/10",
-    },
-  ]
-
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setIsProcessing(true)
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      const orderData = await paymentService.createPaymentOrder(rideId!)
+
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        order_id: orderData.orderId,
+        name: "CheckPoint",
+        description: "Ride Payment",
+        handler: async function (response: any) {
+          try {
+            await paymentService.verifyPayment({
+              rideId: rideId!,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+              paymentMethod: selectedMethod,
+            })
+            navigate(`/ride/${rideId}/track`)
+          } catch (error) {
+            alert("Payment verification failed")
+            setIsProcessing(false)
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false)
+          },
+        },
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.open()
+    } catch (error) {
+      alert("Failed to initiate payment")
       setIsProcessing(false)
-      // Navigate to live tracking after successful payment
-      navigate(`/ride/${rideId}/track`)
-    }, 2000)
+    }
+  }
+
+  if (loading) {
+    return null // or a loading spinner
+  }
+
+  if (!rideDetails) {
+    return null // or a 404 not found page
   }
 
   return (
@@ -92,8 +151,12 @@ export function PaymentPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-white">Payment</h1>
-              <p className="text-xs md:text-sm text-white/40">Complete your payment</p>
+              <h1 className="text-xl md:text-2xl font-semibold text-white">
+                Payment
+              </h1>
+              <p className="text-xs md:text-sm text-white/40">
+                Complete your payment
+              </p>
             </div>
           </div>
         </div>
@@ -110,29 +173,41 @@ export function PaymentPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <RadioGroup value={selectedMethod} onValueChange={setSelectedMethod}>
+                <RadioGroup
+                  value={selectedMethod}
+                  onValueChange={setSelectedMethod}
+                >
                   <div className="space-y-3">
                     {paymentMethods.map((method) => (
                       <div
                         key={method.id}
                         className={`relative flex items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-all ${
                           selectedMethod === method.id
-                            ? 'border-blue-500 bg-blue-500/10'
-                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            ? "border-blue-500 bg-blue-500/10"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
                         }`}
                         onClick={() => setSelectedMethod(method.id)}
                       >
                         <RadioGroupItem value={method.id} id={method.id} />
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${method.bg}`}>
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-lg ${method.bg}`}
+                        >
                           <method.icon className={`h-5 w-5 ${method.color}`} />
                         </div>
                         <div className="flex-1">
-                          <Label htmlFor={method.id} className="text-white font-medium cursor-pointer">
+                          <Label
+                            htmlFor={method.id}
+                            className="text-white font-medium cursor-pointer"
+                          >
                             {method.name}
                           </Label>
-                          <p className="text-xs text-white/60">{method.description}</p>
+                          <p className="text-xs text-white/60">
+                            {method.description}
+                          </p>
                           {method.id === "wallet" && method.balance && (
-                            <p className="text-xs text-green-400 mt-1">Balance: ₹{method.balance}</p>
+                            <p className="text-xs text-green-400 mt-1">
+                              Balance: ₹{method.balance}
+                            </p>
                           )}
                         </div>
                         {selectedMethod === method.id && (
@@ -149,7 +224,8 @@ export function PaymentPage() {
                     <span className="text-sm font-semibold">Secure Payment</span>
                   </div>
                   <p className="text-xs text-white/60">
-                    Your payment information is encrypted and secure. We never store your card details.
+                    Your payment information is encrypted and secure. We never
+                    store your card details.
                   </p>
                 </div>
               </CardContent>
@@ -167,9 +243,13 @@ export function PaymentPage() {
               <CardContent className="p-6 space-y-4">
                 <div>
                   <p className="text-xs text-white/40 mb-2">Route</p>
-                  <p className="text-sm text-white font-medium mb-1">{rideDetails.from}</p>
+                  <p className="text-sm text-white font-medium mb-1">
+                    {rideDetails.from}
+                  </p>
                   <p className="text-sm text-white/60 mb-1">to</p>
-                  <p className="text-sm text-white font-medium">{rideDetails.to}</p>
+                  <p className="text-sm text-white font-medium">
+                    {rideDetails.to}
+                  </p>
                 </div>
 
                 <Separator className="bg-white/10" />
@@ -177,7 +257,9 @@ export function PaymentPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-white/60">
                     <span>Date & Time</span>
-                    <span className="text-white">{rideDetails.date}, {rideDetails.time}</span>
+                    <span className="text-white">
+                      {rideDetails.date}, {rideDetails.time}
+                    </span>
                   </div>
                   <div className="flex justify-between text-white/60">
                     <span>Driver</span>

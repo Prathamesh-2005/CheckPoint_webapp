@@ -13,8 +13,24 @@ import { HelpPage } from "./pages/HelpPage";
 import { RideDetailsPage } from "./pages/RideDetailsPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { LiveTrackingPage } from "./pages/LiveTrackingPage";
+import { useEffect } from 'react';
+import { notificationService } from './services/notificationService';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
+  useEffect(() => {
+    notificationService.requestPermission();
+    
+    const token = localStorage.getItem('token');
+    if (token) {
+      notificationService.connect(token);
+      
+      return () => {
+        notificationService.disconnect();
+      };
+    }
+  }, []);
+
   return (
     <div className="dark">
       <Router>
@@ -22,18 +38,20 @@ function App() {
           <Route path="/" element={<Navigate to="/login" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/search" element={<FindRidePage />} />
-          <Route path="/offer" element={<OfferRidePage />} />
-          <Route path="/my-rides" element={<MyRidesPage />} />
-          <Route path="/settings" element={<ProfilePage />} />
-          <Route path="/wallet" element={<WalletPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/messages" element={<ChatPage />} />
-          <Route path="/help" element={<HelpPage />} />
-          <Route path="/ride/:rideId" element={<RideDetailsPage />} />
-          <Route path="/ride/:rideId/payment" element={<PaymentPage />} />
-          <Route path="/ride/:rideId/track" element={<LiveTrackingPage />} />
+          
+    
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/search" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />
+          <Route path="/offer" element={<ProtectedRoute><OfferRidePage /></ProtectedRoute>} />
+          <Route path="/my-rides" element={<ProtectedRoute><MyRidesPage /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/messages" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+          <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
+          <Route path="/ride/:rideId" element={<ProtectedRoute><RideDetailsPage /></ProtectedRoute>} />
+          <Route path="/ride/:rideId/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/ride/:rideId/track" element={<ProtectedRoute><LiveTrackingPage /></ProtectedRoute>} />
         </Routes>
       </Router>
     </div>

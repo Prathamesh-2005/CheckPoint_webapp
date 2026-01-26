@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
+import { authService } from "@/services/authService"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -29,23 +30,26 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    // TODO: Replace with real API call
-    setTimeout(() => {
+
+    try {
+      const response = await authService.login({ email, password })
+      console.log('✅ Login successful:', response)
+      
+      localStorage.setItem('token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      
+
+      navigate('/dashboard')
+    } catch (err: any) {
+      console.error('❌ Login failed:', err)
+      setError(err.message || 'Invalid email or password')
+    } finally {
       setLoading(false)
-      if (email === "test@test.com" && password === "password") {
-        navigate("/dashboard")
-      } else {
-        setError("Invalid credentials")
-      }
-    }, 1000)
+    }
   }
 
   const handleGoogleSignIn = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      navigate("/")
-    }, 1000)
+    window.location.href = 'http://localhost:8080/oauth2/authorization/google'
   }
 
   return (

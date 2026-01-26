@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import React from "react"
 import {
   Home,
@@ -29,113 +29,40 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/AppSidebar"
 import { Spinner } from "@/components/ui/spinner"
 import { useNavigate } from "react-router-dom"
-
-const menuItems = [
-  { title: "Home", icon: Home, url: "/dashboard" },
-  { title: "My Rides", icon: Car, url: "/my-rides" },
-  { title: "Find Ride", icon: Search, url: "/search" },
-  { title: "Offer Ride", icon: Users, url: "/offer" },
-  { title: "Wallet", icon: Wallet, url: "/wallet" },
-  { title: "Analytics", icon: BarChart3, url: "/analytics" },
-  { title: "Settings", icon: Settings, url: "/settings" },
-]
-
-const stats = [
-  {
-    title: "Active Rides",
-    value: "3",
-    icon: Car,
-    change: "+12%",
-    changeType: "positive",
-    description: "Currently ongoing",
-  },
-  {
-    title: "Total Trips",
-    value: "24",
-    icon: Activity,
-    change: "+8%",
-    changeType: "positive",
-    description: "This month",
-  },
-  {
-    title: "Saved Amount",
-    value: "₹2,450",
-    icon: TrendingUp,
-    change: "+23%",
-    changeType: "positive",
-    description: "vs solo rides",
-  },
-  {
-    title: "Live Tracking",
-    value: "Active",
-    icon: Navigation,
-    change: "Real-time",
-    changeType: "neutral",
-    description: "Location enabled",
-  },
-]
-
-const recentRides = [
-  {
-    id: 1,
-    from: "Indiranagar",
-    to: "Whitefield",
-    status: "In Progress",
-    role: "Passenger",
-    time: "10 mins ago",
-    price: "₹320",
-    driver: "Rahul K.",
-    color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  },
-  {
-    id: 2,
-    from: "HSR Layout",
-    to: "Koramangala",
-    status: "Completed",
-    role: "Driver",
-    time: "2 hours ago",
-    price: "₹210",
-    driver: "You",
-    color: "bg-green-500/10 text-green-600 border-green-500/20",
-  },
-  {
-    id: 3,
-    from: "MG Road",
-    to: "Airport",
-    status: "Scheduled",
-    role: "Passenger",
-    time: "Tomorrow 8:00 AM",
-    price: "₹450",
-    driver: "Priya M.",
-    color: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  },
-]
-
-// Memoize stats cards
-const StatsCard = React.memo(({ stat }: { stat: typeof stats[0] }) => (
-  <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
-    <CardContent className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
-          <stat.icon className="h-5 w-5 text-white/60" />
-        </div>
-        <span className={`text-xs font-medium ${
-          stat.changeType === 'positive' ? 'text-green-500' : 'text-white/40'
-        }`}>
-          {stat.change}
-        </span>
-      </div>
-      <div className="text-2xl font-semibold text-white mb-1">{stat.value}</div>
-      <p className="text-xs text-white/40">{stat.title}</p>
-      <p className="text-xs text-white/30 mt-1">{stat.description}</p>
-    </CardContent>
-  </Card>
-))
+import { rideService } from "@/services/rideService"
 
 export function DashboardPage() {
-  const [isLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState({
+    activeRides: 0,
+    totalTrips: 0,
+    savedAmount: 0,
+    liveTracking: "Active"
+  })
+  const [recentRides, setRecentRides] = useState<any[]>([])
   const navigate = useNavigate()
   const user = JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}')
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      const rides = await rideService.getMyRides()
+      setRecentRides(rides.slice(0, 3))
+      setStats({
+        activeRides: rides.filter((r: any) => r.status === "IN_PROGRESS").length,
+        totalTrips: rides.length,
+        savedAmount: rides.reduce((acc: number, r: any) => acc + (r.price || 0), 0),
+        liveTracking: "Active"
+      })
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -177,9 +104,59 @@ export function DashboardPage() {
           <div className="p-4 md:p-8 space-y-6">
             {/* Stats Grid - Now Memoized */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {stats.map((stat, i) => (
-                <StatsCard key={i} stat={stat} />
-              ))}
+              <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
+                      <Car className="h-5 w-5 text-white/60" />
+                    </div>
+                    <span className="text-xs font-medium text-green-500">Live</span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white mb-1">{stats.activeRides}</div>
+                  <p className="text-xs text-white/40">Active Rides</p>
+                </CardContent>
+              </Card>
+              <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
+                      <Activity className="h-5 w-5 text-white/60" />
+                    </div>
+                    <span className="text-xs font-medium text-green-500">+8%</span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white mb-1">{stats.totalTrips}</div>
+                  <p className="text-xs text-white/40">Total Trips</p>
+                  <p className="text-xs text-white/30 mt-1">This month</p>
+                </CardContent>
+              </Card>
+              <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
+                      <TrendingUp className="h-5 w-5 text-white/60" />
+                    </div>
+                    <span className="text-xs font-medium text-green-500">+23%</span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white mb-1">₹{stats.savedAmount}</div>
+                  <p className="text-xs text-white/40">Saved Amount</p>
+                  <p className="text-xs text-white/30 mt-1">vs solo rides</p>
+                </CardContent>
+              </Card>
+              <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
+                      <Navigation className="h-5 w-5 text-white/60" />
+                    </div>
+                    <span className="text-xs font-medium text-white/40">
+                      Real-time
+                    </span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white mb-1">{stats.liveTracking}</div>
+                  <p className="text-xs text-white/40">Live Tracking</p>
+                  <p className="text-xs text-white/30 mt-1">Location enabled</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Quick Actions */}
@@ -265,46 +242,58 @@ export function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {recentRides.map((ride) => (
-                      <div
-                        key={ride.id}
-                        className="flex flex-col md:flex-row md:items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4 hover:bg-white/10 transition-all gap-3"
-                      >
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 shrink-0">
-                            <Navigation className="h-5 w-5 text-white/60" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-white text-sm mb-1 truncate">
-                              {ride.from} → {ride.to}
-                            </p>
-                            <div className="flex items-center gap-2 text-xs text-white/40">
-                              <Clock className="h-3 w-3" />
-                              <span>{ride.time}</span>
-                              <span>•</span>
-                              <span>{ride.driver}</span>
+                    {recentRides.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Car className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                        <p className="text-white/60">No recent rides</p>
+                      </div>
+                    ) : (
+                      recentRides.map((ride) => (
+                        <div
+                          key={ride.id}
+                          className="flex flex-col md:flex-row md:items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4 hover:bg-white/10 transition-all gap-3"
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 shrink-0">
+                              <Navigation className="h-5 w-5 text-white/60" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-white text-sm mb-1 truncate">
+                                {ride.from} → {ride.to}
+                              </p>
+                              <div className="flex items-center gap-2 text-xs text-white/40">
+                                <Clock className="h-3 h-3" />
+                                <span>{new Date(ride.departureTime).toLocaleDateString()}</span>
+                                <span>•</span>
+                                {/* ✅ FIXED: Render driver name properly instead of object */}
+                                {ride.driver && (
+                                  <span>
+                                    Driver: {ride.driver.firstName} {ride.driver.lastName}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 md:ml-4">
-                          <div className="flex items-center gap-1 text-white/60">
-                            <DollarSign className="h-3 w-3" />
-                            <span className="text-sm font-medium">{ride.price}</span>
+                          <div className="flex items-center gap-3 md:ml-4">
+                            <div className="flex items-center gap-1 text-white/60">
+                              <DollarSign className="h-3 w-3" />
+                              <span className="text-sm font-medium">{ride.price}</span>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="border-white/10 text-white/60 text-xs"
+                            >
+                              {ride.role}
+                            </Badge>
+                            <Badge
+                              className={`${ride.color} border text-xs`}
+                            >
+                              {ride.status}
+                            </Badge>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className="border-white/10 text-white/60 text-xs"
-                          >
-                            {ride.role}
-                          </Badge>
-                          <Badge
-                            className={`${ride.color} border text-xs`}
-                          >
-                            {ride.status}
-                          </Badge>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
               </CardContent>

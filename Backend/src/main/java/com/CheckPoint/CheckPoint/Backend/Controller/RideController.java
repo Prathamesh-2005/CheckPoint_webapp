@@ -18,7 +18,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/rides")
-@CrossOrigin("http://127.0.0.1:5500/")
+@CrossOrigin(origins =
+        {
+                "http://127.0.0.1:5500/","http://localhost:5173/"
+        })
 @Validated
 public class RideController {
 
@@ -32,16 +35,21 @@ public class RideController {
     public ResponseEntity<RideResponse> offerRide(
             @Valid @RequestBody CreateRideRequest request,
             @AuthenticationPrincipal User driver) {
-        Ride newRide = rideService.createRide(request, driver);
-        return new ResponseEntity<>(new RideResponse(newRide), HttpStatus.CREATED);
+        RideResponse response = rideService.createRideWithResponse(request, driver);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @GetMapping("/search")
     public ResponseEntity<List<RideResponse>> searchRides(
             @RequestParam double startLat,
             @RequestParam double startLng,
+            @RequestParam double destLat,
+            @RequestParam double destLng,
             @RequestParam(defaultValue = "5.0") double radius) {
-        List<RideResponse> rides = rideService.searchRides(startLat, startLng, radius);
+        List<RideResponse> rides = rideService.searchRides(
+                startLat, startLng,
+                destLat, destLng,
+                radius);
         return ResponseEntity.ok(rides);
     }
 

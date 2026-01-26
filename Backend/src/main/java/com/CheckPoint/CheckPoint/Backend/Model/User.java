@@ -1,15 +1,19 @@
 package com.CheckPoint.CheckPoint.Backend.Model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "users")
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class User implements UserDetails {
 
     @Id
@@ -20,6 +24,7 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @JsonIgnore
     private String password;
 
     private String firstName;
@@ -52,6 +57,14 @@ public class User implements UserDetails {
 
     @Embedded
     private BankDetails bankDetails;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "driver", fetch = FetchType.LAZY)
+    private List<Ride> rides;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "passenger", fetch = FetchType.LAZY)
+    private List<Booking> bookings;
 
     @PrePersist
     public void prePersist() {
