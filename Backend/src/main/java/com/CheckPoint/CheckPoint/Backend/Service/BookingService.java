@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,7 +35,7 @@ public class BookingService {
 
     @Transactional
     public Booking createBooking(UUID rideId, User passenger) {
-        System.out.println("🎫 Creating booking for ride: " + rideId);
+        System.out.println(" Creating booking for ride: " + rideId);
         System.out.println("   Passenger: " + passenger.getEmail());
 
         Ride ride = rideRepository.findById(rideId)
@@ -113,7 +114,6 @@ public class BookingService {
 
         System.out.println("Booking status valid, updating...");
 
-
         BookingStatus newStatus = BookingStatus.valueOf(request.getStatus().toUpperCase());
         booking.setStatus(newStatus);
         Booking savedBooking = bookingRepository.save(booking);
@@ -151,6 +151,18 @@ public class BookingService {
 
     public List<Booking> getPassengerBookings(User passenger) {
         return bookingRepository.findByPassengerOrderByCreatedAtDesc(passenger);
+    }
+
+    public List<Booking> getDriverBookings(User driver) {
+        List<Ride> driverRides = rideRepository.findByDriverOrderByCreatedAtDesc(driver);
+        List<Booking> allBookings = new ArrayList<>();
+
+        for (Ride ride : driverRides) {
+            List<Booking> rideBookings = bookingRepository.findByRide(ride);
+            allBookings.addAll(rideBookings);
+        }
+
+        return allBookings;
     }
 
     private void sendBookingRequestNotification(Booking booking) {

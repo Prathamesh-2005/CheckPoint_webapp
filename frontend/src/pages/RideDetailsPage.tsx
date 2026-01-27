@@ -36,6 +36,7 @@ export function RideDetailsPage() {
   const [ride, setRide] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [booking, setBooking] = useState<any>(null)
 
   useEffect(() => {
     loadRideDetails()
@@ -55,7 +56,8 @@ export function RideDetailsPage() {
   const handleBookRide = async () => {
     setIsBooking(true)
     try {
-      await bookingService.requestRide(rideId!)
+      const bookingResponse = await bookingService.requestRide(rideId!)
+      setBooking(bookingResponse)
       setShowSuccessModal(true)
       setTimeout(() => {
         setShowSuccessModal(false)
@@ -224,6 +226,18 @@ export function RideDetailsPage() {
                 >
                   {isBooking ? 'Booking...' : 'Book This Ride'}
                 </Button>
+
+                {/* ✅ Only show chat button if user has a booking */}
+                {booking && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-12 border-white/20 text-white hover:bg-white/10 mb-3"
+                    onClick={() => navigate(`/chat?bookingId=${booking.id}&name=${ride.driver?.firstName} ${ride.driver?.lastName}&avatar=${ride.driver?.profileImageUrl || ''}`)}
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Chat with Driver
+                  </Button>
+                )}
 
                 <div className="space-y-2 text-xs text-white/60">
                   <div className="flex items-center gap-2">

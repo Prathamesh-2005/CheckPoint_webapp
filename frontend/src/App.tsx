@@ -52,6 +52,7 @@ function App() {
           <Route path="/ride/:rideId" element={<ProtectedRoute><RideDetailsPage /></ProtectedRoute>} />
           <Route path="/ride/:rideId/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
           <Route path="/ride/:rideId/track" element={<ProtectedRoute><LiveTrackingPage /></ProtectedRoute>} />
+          <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         </Routes>
       </Router>
     </div>

@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useNavigate } from "react-router-dom"
 import { rideService } from "@/services/rideService"
+import { bookingService } from "@/services/bookingService"
 
 export function MyRidesPage() {
   const [activeTab, setActiveTab] = useState("all")
@@ -55,7 +56,25 @@ export function MyRidesPage() {
   const loadRides = async () => {
     try {
       const data = await rideService.getMyRides()
-      setRides(data)
+      
+      // ✅ Fetch all bookings once at the beginning
+      const allBookings = await bookingService.getMyBookings()
+      
+      const currentUserId = currentUser.id
+      const ridesWithBookings = data.map((ride: any) => {
+        const isDriver = ride.driver?.id === currentUserId
+        
+        // ✅ Find booking for this ride
+        const booking = allBookings.find((b: any) => b.ride?.id === ride.id)
+        
+        return { 
+          ...ride, 
+          userBooking: booking,
+          isDriver 
+        }
+      })
+      
+      setRides(ridesWithBookings)
     } catch (error) {
       console.error("Failed to load rides:", error)
     } finally {
@@ -232,7 +251,39 @@ export function MyRidesPage() {
                                           <p className="text-xs text-white/40">Total</p>
                                         </div>
                                         
-                                        {/* ✅ Show different buttons based on ride status */}
+                                        {/* ✅ Show chat button only for CONFIRMED/IN_PROGRESS rides with booking */}
+                                        {ride.userBooking && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && !ride.isDriver && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-white/20 w-full"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              const driverName = `${ride.driver?.firstName || ''} ${ride.driver?.lastName || ''}`.trim()
+                                              navigate(`/chat?bookingId=${ride.userBooking.id}&name=${driverName}&avatar=${ride.driver?.profileImageUrl || ''}`)
+                                            }}
+                                          >
+                                            <MessageCircle className="w-4 h-4 mr-2" />
+                                            Chat with Driver
+                                          </Button>
+                                        )}
+
+                                        {/* ✅ Driver can see chat with passengers after accepting */}
+                                        {ride.isDriver && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && ride.userBooking && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-white/20 w-full"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              navigate(`/chat?bookingId=${ride.userBooking.id}&name=Passenger&avatar=`)
+                                            }}
+                                          >
+                                            <MessageCircle className="w-4 h-4 mr-2" />
+                                            Chat with Passenger
+                                          </Button>
+                                        )}
+
                                         {ride.status === 'AVAILABLE' && (
                                           <Button
                                             size="sm"

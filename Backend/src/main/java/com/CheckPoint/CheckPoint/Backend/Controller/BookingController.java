@@ -11,7 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,9 +49,16 @@ public class BookingController {
 
     @GetMapping("/bookings/my-bookings")
     public ResponseEntity<List<BookingResponse>> getMyBookings(
-            @AuthenticationPrincipal User passenger) {
-        List<Booking> bookings = bookingService.getPassengerBookings(passenger);
-        List<BookingResponse> response = bookings.stream()
+            @AuthenticationPrincipal User user) {
+        List<Booking> passengerBookings = bookingService.getPassengerBookings(user);
+        List<Booking> driverBookings = bookingService.getDriverBookings(user);
+
+
+        Set<Booking> allBookings = new LinkedHashSet<>();
+        allBookings.addAll(passengerBookings);
+        allBookings.addAll(driverBookings);
+
+        List<BookingResponse> response = allBookings.stream()
                 .map(BookingResponse::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(response);
