@@ -30,7 +30,7 @@ public class RideLocation {
     @Column(nullable = false)
     private LocalDateTime timestamp = LocalDateTime.now();
 
-    // Getters and Setters
+
     public UUID getId() {
         return id;
     }

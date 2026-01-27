@@ -19,6 +19,5 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     Optional<Booking> findByRideAndPassenger(Ride ride, User passenger);
 
-    // ✅ Add this method for passenger to see their bookings
     List<Booking> findByPassengerOrderByCreatedAtDesc(User passenger);
 }

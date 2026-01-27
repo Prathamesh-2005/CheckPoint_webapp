@@ -11,8 +11,6 @@ import java.util.UUID;
 
 @Entity
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Table(name = "notifications")
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Notification {
@@ -25,7 +23,7 @@ public class Notification {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50) // ✅ Increased from default to 50
+    @Column(nullable = false, length = 50)
     private NotificationType type;
 
     @Column(nullable = false)

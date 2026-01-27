@@ -38,7 +38,6 @@ public class LocationTrackingService {
         Ride ride = rideRepository.findById(dto.getRideId())
                 .orElseThrow(() -> new EntityNotFoundException("Ride not found"));
 
-        // Verify user is part of this ride (driver or accepted passenger)
         boolean isDriver = ride.getDriver().getId().equals(user.getId());
         boolean isPassenger = bookingRepository.findByRideIdAndPassengerId(ride.getId(), user.getId())
                 .map(b -> b.getStatus() == BookingStatus.ACCEPTED)
@@ -48,12 +47,10 @@ public class LocationTrackingService {
             throw new AccessDeniedException("You are not authorized to update location for this ride");
         }
 
-        // Only allow location updates for CONFIRMED or IN_PROGRESS rides
         if (ride.getStatus() != RideStatus.CONFIRMED && ride.getStatus() != RideStatus.IN_PROGRESS) {
             throw new IllegalStateException("Location tracking is only available for confirmed or in-progress rides");
         }
 
-        // Save location
         RideLocation location = new RideLocation();
         location.setRide(ride);
         location.setUser(user);
@@ -72,14 +69,10 @@ public class LocationTrackingService {
                 dto.getLongitude(),
                 LocalDateTime.now());
 
-        // Broadcast location to the other party
         if (isDriver) {
-            // Send driver location to passenger
             bookingRepository.findByRideIdAndPassengerId(ride.getId(), user.getId());
-            // Find accepted passenger and send
             sendLocationToRideParticipants(ride, response, false);
         } else {
-            // Send passenger location to driver
             sendLocationToRideParticipants(ride, response, true);
         }
 
@@ -90,14 +83,12 @@ public class LocationTrackingService {
         String destination = "/queue/location";
 
         if (toDriver) {
-            // Send to driver
             messagingTemplate.convertAndSendToUser(
                     ride.getDriver().getUsername(),
                     destination,
                     location);
             System.out.println("Location sent to driver: " + ride.getDriver().getUsername());
         } else {
-            // Send to all accepted passengers (in this case, just one)
             bookingRepository.findByRideAndStatus(ride, BookingStatus.ACCEPTED)
                     .forEach(booking -> {
                         messagingTemplate.convertAndSendToUser(
@@ -114,7 +105,6 @@ public class LocationTrackingService {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new EntityNotFoundException("Ride not found"));
 
-        // Verify user is the passenger
         boolean isPassenger = bookingRepository.findByRideIdAndPassengerId(ride.getId(), user.getId())
                 .map(b -> b.getStatus() == BookingStatus.ACCEPTED)
                 .orElse(false);
@@ -141,12 +131,10 @@ public class LocationTrackingService {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new EntityNotFoundException("Ride not found"));
 
-        // Verify user is the driver
         if (!ride.getDriver().getId().equals(driver.getId())) {
             throw new AccessDeniedException("You are not authorized to view passenger location");
         }
 
-        // Find accepted passenger
         Booking acceptedBooking = bookingRepository.findByRideAndStatus(ride, BookingStatus.ACCEPTED)
                 .stream().findFirst()
                 .orElseThrow(() -> new EntityNotFoundException("No accepted passenger for this ride"));

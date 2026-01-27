@@ -44,32 +44,28 @@ public class BookingService {
         System.out.println("   Ride status: " + ride.getStatus());
         System.out.println("   Available seats: " + ride.getAvailableSeats());
 
-        // Check if passenger is trying to book their own ride
         if (ride.getDriver().getId().equals(passenger.getId())) {
-            System.out.println("❌ ERROR: Driver trying to book own ride!");
+            System.out.println(" ERROR: Driver trying to book own ride!");
             throw new IllegalStateException("You cannot book your own ride.");
         }
 
-        // Check if ride is available
         if (ride.getStatus() != RideStatus.AVAILABLE) {
-            System.out.println("❌ ERROR: Ride status is " + ride.getStatus() + ", not AVAILABLE");
+            System.out.println(" ERROR: Ride status is " + ride.getStatus() + ", not AVAILABLE");
             throw new IllegalStateException("This ride is no longer available for booking.");
         }
 
-        // Check if seats available
         if (ride.getAvailableSeats() <= 0) {
-            System.out.println("❌ ERROR: No seats available!");
+            System.out.println(" ERROR: No seats available!");
             throw new IllegalStateException("This ride has no available seats.");
         }
 
-        // Check if passenger already has a booking
         Optional<Booking> existingBooking = bookingRepository.findByRideAndPassenger(ride, passenger);
         if (existingBooking.isPresent()) {
-            System.out.println("❌ ERROR: Passenger already booked this ride!");
+            System.out.println(" ERROR: Passenger already booked this ride!");
             throw new IllegalStateException("You have already booked this ride.");
         }
 
-        System.out.println("✅ All validations passed, creating booking...");
+        System.out.println(" All validations passed, creating booking...");
 
         Booking newBooking = new Booking();
         newBooking.setRide(ride);
@@ -78,9 +74,8 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(newBooking);
 
-        System.out.println("✅ Booking created successfully: " + savedBooking.getId());
+        System.out.println(" Booking created successfully: " + savedBooking.getId());
 
-        // Send notification to driver
         notificationService.createAndSendNotification(
                 ride.getDriver(),
                 NotificationType.BOOKING_REQUEST,
@@ -104,27 +99,26 @@ public class BookingService {
         Ride ride = booking.getRide();
 
         if (!ride.getDriver().getId().equals(driver.getId())) {
-            System.out.println("❌ Unauthorized: Not the driver of this ride");
+            System.out.println(" Unauthorized: Not the driver of this ride");
             throw new RuntimeException("You are not authorized to modify this booking");
         }
 
         if (booking.getStatus() != BookingStatus.REQUESTED) {
-            System.out.println("❌ Booking already processed");
+            System.out.println(" Booking already processed");
             System.out.println("   Current status: " + booking.getStatus());
             throw new IllegalStateException(
                     "This booking has already been " + booking.getStatus().name().toLowerCase() +
                             ". Current status: " + booking.getStatus());
         }
 
-        System.out.println("✅ Booking status valid, updating...");
+        System.out.println("Booking status valid, updating...");
 
-        // ✅ Fixed: request.getStatus() returns String, so we need to parse it
+
         BookingStatus newStatus = BookingStatus.valueOf(request.getStatus().toUpperCase());
         booking.setStatus(newStatus);
         Booking savedBooking = bookingRepository.save(booking);
 
         if (newStatus == BookingStatus.ACCEPTED) {
-            // ✅ Change ride status to CONFIRMED when booking is accepted
             ride.setStatus(RideStatus.CONFIRMED);
             ride.setAvailableSeats(ride.getAvailableSeats() - 1);
             rideRepository.save(ride);
@@ -146,7 +140,7 @@ public class BookingService {
                     booking.getId());
         }
 
-        System.out.println("✅ Booking updated successfully to: " + newStatus);
+        System.out.println(" Booking updated successfully to: " + newStatus);
         return savedBooking;
     }
 

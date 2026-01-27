@@ -31,7 +31,7 @@ public class Booking {
     private User passenger;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20) // Add length = 20 to match enum values
+    @Column(nullable = false, length = 20)
     private BookingStatus status;
 
     @Column(nullable = false, updatable = false)
@@ -44,7 +44,6 @@ public class Booking {
         }
     }
 
-    // Explicit getters and setters
     public UUID getId() {
         return id;
     }
