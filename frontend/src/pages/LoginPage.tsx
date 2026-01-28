@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { authService } from "@/services/authService"
 import { Button } from "@/components/ui/button"
@@ -20,11 +20,35 @@ import { Loader2, Chrome } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 
 export function LoginPage() {
+  const navigate = useNavigate()
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const navigate = useNavigate()
+
+  // ✅ Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuthenticated = await authService.isAuthenticated()
+      if (isAuthenticated) {
+        console.log('✅ User already logged in, redirecting to dashboard')
+        navigate('/dashboard', { replace: true })
+      } else {
+        setCheckingAuth(false)
+      }
+    }
+    checkAuth()
+  }, [navigate])
+
+  // ✅ Show loading spinner while checking auth
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

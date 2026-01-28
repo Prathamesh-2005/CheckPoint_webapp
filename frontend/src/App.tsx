@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { LoginPage } from "./pages/LoginPage";
-import { RegisterPage } from "./pages/RegisterPage";
+import { SignupPage } from "./pages/SignupPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { FindRidePage } from "./pages/FindRidePage";
 import { OfferRidePage } from "./pages/OfferRidePage";
@@ -9,54 +11,83 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { WalletPage } from "./pages/WalletPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { ChatPage } from "./pages/ChatPage";
-import { HelpPage } from "./pages/HelpPage";
 import { RideDetailsPage } from "./pages/RideDetailsPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { LiveTrackingPage } from "./pages/LiveTrackingPage";
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { notificationService } from './services/notificationService';
+import { authService } from './services/authService';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
+  const [initializing, setInitializing] = useState(true);
+
   useEffect(() => {
-    notificationService.requestPermission();
-    
-    const token = localStorage.getItem('token');
-    if (token) {
-      notificationService.connect(token);
+    const initApp = async () => {
+      notificationService.requestPermission();
       
-      return () => {
-        notificationService.disconnect();
-      };
+      const token = localStorage.getItem('token');
+      if (token) {
+        // ✅ Verify token is valid before connecting
+        const isValid = await authService.isAuthenticated();
+        if (isValid) {
+          notificationService.connect(token)
+        }
+      }
+      
+      // ✅ Small delay to prevent flash
+      setTimeout(() => setInitializing(false), 300)
+    }
+    
+    initApp()
+    
+    return () => {
+      notificationService.disconnect()
     }
   }, []);
+
+  // ✅ Show loading screen while app initializes
+  if (initializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-white/60 text-sm">Loading CheckPoint...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="dark">
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          {/* ✅ Root redirects to login (not a landing page) */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           
-    
+          {/* ✅ Public routes - redirect to dashboard if already logged in */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* ✅ Protected routes - require authentication */}
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/search" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />
-          <Route path="/offer" element={<ProtectedRoute><OfferRidePage /></ProtectedRoute>} />
+          <Route path="/find-ride" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />
+          <Route path="/offer-ride" element={<ProtectedRoute><OfferRidePage /></ProtectedRoute>} />
           <Route path="/my-rides" element={<ProtectedRoute><MyRidesPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
-          <Route path="/messages" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-          <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
           <Route path="/ride/:rideId" element={<ProtectedRoute><RideDetailsPage /></ProtectedRoute>} />
-          <Route path="/ride/:rideId/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
           <Route path="/ride/:rideId/track" element={<ProtectedRoute><LiveTrackingPage /></ProtectedRoute>} />
+          <Route path="/ride/:rideId/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         </Routes>
       </Router>
     </div>
-  );
+  )
 }
 
 export default App
