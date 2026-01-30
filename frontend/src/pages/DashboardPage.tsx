@@ -162,7 +162,7 @@ export function DashboardPage() {
             {/* Quick Actions */}
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="border-white/5 bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm hover:from-blue-500/20 hover:to-blue-600/10 transition-all cursor-pointer group"
-                onClick={() => window.location.href = '/search'}
+                onClick={() => navigate('/find-ride')}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -180,7 +180,7 @@ export function DashboardPage() {
               </Card>
 
               <Card className="border-white/5 bg-gradient-to-br from-purple-500/10 to-purple-600/5 backdrop-blur-sm hover:from-purple-500/20 hover:to-purple-600/10 transition-all cursor-pointer group"
-                onClick={() => window.location.href = '/offer'}
+                onClick={() => navigate('/offer-ride')}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -198,10 +198,10 @@ export function DashboardPage() {
               </Card>
             </div>
 
-            {/* Add Messages Quick Action */}
+            {/* Messages Quick Action */}
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="border-white/5 bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm hover:from-green-500/20 hover:to-green-600/10 transition-all cursor-pointer group"
-                onClick={() => window.location.href = '/messages'}
+                onClick={() => navigate('/chat')}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -214,6 +214,24 @@ export function DashboardPage() {
                   <p className="text-sm text-white/40 mb-4">Chat with riders and drivers</p>
                   <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white border-0">
                     Open Chat
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/5 bg-gradient-to-br from-orange-500/10 to-orange-600/5 backdrop-blur-sm hover:from-orange-500/20 hover:to-orange-600/10 transition-all cursor-pointer group"
+                onClick={() => navigate('/my-rides')}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/20">
+                      <Activity className="h-6 w-6 text-orange-400" />
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-white/60 transition-colors" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">My Rides</h3>
+                  <p className="text-sm text-white/40 mb-4">View your ride history</p>
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-0">
+                    View Rides
                   </Button>
                 </CardContent>
               </Card>

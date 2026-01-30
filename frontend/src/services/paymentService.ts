@@ -1,75 +1,73 @@
-import { API_BASE_URL, getAuthHeaders, handleApiError } from '@/config/api';
+const API_URL = 'http://localhost:8080/api/payments';
 
-export interface RazorpayOrder {
-  orderId: string;
-  amount: string;
-  currency: string;
-  key: string;
-  rideId: string;
-}
+class PaymentService {
+  private getHeaders() {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+  }
 
-export interface VerifyPaymentRequest {
-  rideId: string;
-  razorpayOrderId: string;
-  razorpayPaymentId: string;
-  razorpaySignature: string;
-  paymentMethod: string;
-}
+  async createPaymentOrder(rideId: string): Promise<any> {
+    console.log('💳 Creating payment order for ride:', rideId);
 
-export const paymentService = {
-  async createPaymentOrder(rideId: string): Promise<RazorpayOrder> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/payments/create-order`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ rideId }),
-      });
+    const response = await fetch(`${API_URL}/create-order`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ rideId }),
+    });
 
-      if (!response.ok) throw new Error('Failed to create payment order');
-      return await response.json();
-    } catch (error) {
-      return handleApiError(error);
+    console.log('📦 Payment order response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Payment order error:', errorText);
+      throw new Error(errorText || 'Failed to create payment order');
     }
-  },
 
-  async verifyPayment(data: VerifyPaymentRequest): Promise<any> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/payments/verify`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data),
-      });
+    const data = await response.json();
+    console.log('✅ Payment order created:', data);
+    return data;
+  }
 
-      if (!response.ok) throw new Error('Payment verification failed');
-      return await response.json();
-    } catch (error) {
-      return handleApiError(error);
+  async verifyPayment(data: {
+    rideId: string;
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+    paymentMethod: string;
+  }): Promise<any> {
+    console.log('✔️ Verifying payment:', data);
+
+    const response = await fetch(`${API_URL}/verify`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        rideId: data.rideId,
+        razorpayOrderId: data.razorpayOrderId,
+        razorpayPaymentId: data.razorpayPaymentId,
+        razorpaySignature: data.razorpaySignature,
+        paymentMethod: data.paymentMethod,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Verification failed:', errorText);
+      throw new Error(errorText || 'Payment verification failed');
     }
-  },
+
+    return response.json();
+  }
 
   async getTransactionHistory(): Promise<any[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/payments/history`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) throw new Error('Failed to get transaction history');
-      return await response.json();
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
+    return [];
+  }
 
   async getPendingEarnings(): Promise<{ pendingEarnings: number }> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/payments/earnings/pending`, {
-        headers: getAuthHeaders(),
-      });
+    return { pendingEarnings: 0 };
+  }
+}
 
-      if (!response.ok) throw new Error('Failed to get earnings');
-      return await response.json();
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
-};
+export const paymentService = new PaymentService();

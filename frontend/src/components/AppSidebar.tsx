@@ -1,5 +1,5 @@
 import React from "react"
-import { Home, Car, Search, Users, Wallet, Bell, MessageCircle, Settings, LogOut, HelpCircle } from "lucide-react"
+import { Home, Car, Search, Users, Wallet, Bell, MessageCircle, Settings, LogOut, HelpCircle, LayoutDashboard, History, User } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -15,21 +15,54 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 
 const menuItems = [
-  { title: "Home", url: "/dashboard", icon: Home },
-  { title: "My Rides", url: "/my-rides", icon: Car },
-  { title: "Find Ride", url: "/search", icon: Search },
-  { title: "Offer Ride", url: "/offer", icon: Users },
-  { title: "Wallet", url: "/wallet", icon: Wallet },
-  { title: "Messages", url: "/messages", icon: MessageCircle },
-  { title: "Notifications", url: "/notifications", icon: Bell },
-  { title: "Help", url: "/help", icon: HelpCircle },
-  { title: "Settings", url: "/settings", icon: Settings },
+  {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    url: "/dashboard",
+  },
+  {
+    title: "Find Ride",
+    icon: Search,
+    url: "/find-ride",
+  },
+  {
+    title: "Offer Ride",
+    icon: Car,
+    url: "/offer-ride",
+  },
+  {
+    title: "My Rides",
+    icon: History,
+    url: "/my-rides",
+  },
+  {
+    title: "Messages",
+    icon: MessageCircle,
+    url: "/chat",
+  },
+  {
+    title: "Notifications",
+    icon: Bell,
+    url: "/notifications",
+  },
+  {
+    title: "Wallet",
+    icon: Wallet,
+    url: "/wallet",
+  },
+  {
+    title: "Profile",
+    icon: User,
+    url: "/profile",
+  },
 ]
 
 export const AppSidebar = React.memo(function AppSidebar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const user = React.useMemo(
     () => JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}'),
     []

@@ -7,12 +7,11 @@ import { cn } from "@/lib/utils"
 
 const menuItems = [
   { title: "Home", url: "/dashboard", icon: Home },
-  { title: "My Rides", url: "/rides", icon: Car },
-  { title: "Find Ride", url: "/search", icon: Search },
-  { title: "Offer Ride", url: "/offer", icon: Users },
+  { title: "My Rides", url: "/my-rides", icon: Car },
+  { title: "Find Ride", url: "/find-ride", icon: Search },
+  { title: "Offer Ride", url: "/offer-ride", icon: Users },
   { title: "Wallet", url: "/wallet", icon: Wallet },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Profile", url: "/profile", icon: Settings },
 ]
 
 interface CustomSidebarProps {

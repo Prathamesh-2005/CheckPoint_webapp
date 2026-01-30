@@ -9,12 +9,14 @@ export interface CreateRideRequest {
   price: number;
 }
 
-export interface Ride {
+interface Ride {
   id: string;
   driver: {
     id: string;
     firstName: string;
     lastName: string;
+    email: string;
+    profileImageUrl?: string;
   };
   startLatitude: number;
   startLongitude: number;
@@ -24,15 +26,22 @@ export interface Ride {
   price: number;
   status: string;
   availableSeats: number;
+  createdAt: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  platformFee?: number;
+  driverEarnings?: number;
 }
 
-export const rideService = {
+class RideService {
+  private readonly BASE_URL = 'http://localhost:8080/api/rides' // ✅ Consistent base URL
+
   async createRide(data: CreateRideRequest): Promise<Ride> {
     try {
       console.log('🚗 Creating ride with data:', data);
-      const response = await fetch(`${API_BASE_URL}/rides`, {
+      const response = await fetch(`${this.BASE_URL}`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: this.getHeaders(),
         body: JSON.stringify(data),
       });
 
@@ -51,47 +60,42 @@ export const rideService = {
       console.error('❌ Create ride exception:', error);
       return handleApiError(error);
     }
-  },
+  }
 
   async searchRides(
-    startLat: number, 
-    startLng: number, 
-    destLat: number, 
-    destLng: number, 
-    radius: number
-  ): Promise<Ride[]> {
-    try {
-      console.log('🔍 Searching rides with:', { 
-        pickup: { lat: startLat, lng: startLng }, 
-        destination: { lat: destLat, lng: destLng }, 
-        radius 
-      })
-      
-      const response = await fetch(
-        `${API_BASE_URL}/rides/search?startLat=${startLat}&startLng=${startLng}&destLat=${destLat}&destLng=${destLng}&radius=${radius}`,
-        { headers: getAuthHeaders() }
-      )
-
-      console.log('Search response status:', response.status)
-      
-      if (!response.ok) {
-        throw new Error('Failed to search rides')
+    startLat: number,
+    startLng: number,
+    destLat: number,
+    destLng: number,
+    radius: number = 5.0
+  ) {
+    console.log('🔍 Searching rides with params:', {
+      startLat, startLng, destLat, destLng, radius
+    })
+    
+    const response = await fetch(
+      `${this.BASE_URL}/search?startLat=${startLat}&startLng=${startLng}&destLat=${destLat}&destLng=${destLng}&radius=${radius}`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
       }
+    )
 
-      const result = await response.json()
-      console.log('✅ Search results:', result.length, 'rides')
-      return result
-    } catch (error) {
-      console.error('❌ Search rides error:', error)
-      return []
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to search rides')
     }
-  },
+
+    const data = await response.json()
+    console.log('✅ Search results:', data)
+    return data
+  }
 
   async getRideById(rideId: string): Promise<Ride> {
     try {
       console.log('🎯 Fetching ride details for ID:', rideId);
-      const response = await fetch(`${API_BASE_URL}/rides/${rideId}`, {
-        headers: getAuthHeaders(),
+      const response = await fetch(`${this.BASE_URL}/${rideId}`, {
+        headers: this.getHeaders(),
       });
 
       console.log('Get ride response status:', response.status);
@@ -107,13 +111,13 @@ export const rideService = {
       console.error('❌ Get ride error:', error);
       throw error;
     }
-  },
+  }
 
   async getMyRides(): Promise<Ride[]> {
     try {
       console.log('👤 Fetching my rides...');
-      const response = await fetch(`${API_BASE_URL}/rides/my-rides`, {
-        headers: getAuthHeaders(),
+      const response = await fetch(`${this.BASE_URL}/my-rides`, {
+        headers: this.getHeaders(),
       });
 
       console.log('My rides response status:', response.status);
@@ -130,13 +134,13 @@ export const rideService = {
       console.error('❌ Get my rides error:', error);
       return [];
     }
-  },
+  }
 
   async cancelRide(rideId: string): Promise<Ride> {
     try {
-      const response = await fetch(`${API_BASE_URL}/rides/${rideId}/cancel`, {
+      const response = await fetch(`${this.BASE_URL}/${rideId}/cancel`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: this.getHeaders(),
       });
 
       if (!response.ok) throw new Error('Failed to cancel ride');
@@ -144,14 +148,14 @@ export const rideService = {
     } catch (error) {
       return handleApiError(error);
     }
-  },
+  }
 
   async startRide(rideId: string): Promise<any> {
     try {
       console.log('🚗 Starting ride:', rideId)
-      const response = await fetch(`${API_BASE_URL}/rides/${rideId}/start`, {
+      const response = await fetch(`${this.BASE_URL}/${rideId}/start`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: this.getHeaders(),
       })
 
       if (!response.ok) {
@@ -164,14 +168,14 @@ export const rideService = {
       console.error('Failed to start ride:', error)
       throw error
     }
-  },
+  }
 
   async completeRide(rideId: string): Promise<any> {
     try {
       console.log('🏁 Completing ride:', rideId)
-      const response = await fetch(`${API_BASE_URL}/rides/${rideId}/complete`, {
+      const response = await fetch(`${this.BASE_URL}/${rideId}/complete`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: this.getHeaders(),
       })
 
       if (!response.ok) {
@@ -184,5 +188,11 @@ export const rideService = {
       console.error('Failed to complete ride:', error)
       throw error
     }
-  },
-};
+  }
+
+  getHeaders() {
+    return getAuthHeaders();
+  }
+}
+
+export const rideService = new RideService()

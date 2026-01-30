@@ -1,103 +1,119 @@
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 
-const API_BASE_URL = 'http://localhost:8080/api'
-const WS_URL = 'http://localhost:8080/ws'
+const API_URL = 'http://localhost:8080'
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token')
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
+class ChatService {
+  private stompClient: Client | null = null
+  private connected: boolean = false
+  private subscriptions: Map<string, any> = new Map()
+  private connectionPromise: Promise<void> | null = null
+
+  connect(): Promise<void> {
+    if (this.connected && this.stompClient) {
+      return Promise.resolve()
+    }
+
+    if (this.connectionPromise) {
+      return this.connectionPromise
+    }
+
+    const token = localStorage.getItem('token')
+    if (!token) {
+      return Promise.reject(new Error('No auth token'))
+    }
+
+    this.connectionPromise = new Promise((resolve, reject) => {
+      this.stompClient = new Client({
+        webSocketFactory: () => new SockJS(`${API_URL}/ws`),
+        connectHeaders: {
+          Authorization: `Bearer ${token}`,
+        },
+        onConnect: () => {
+          this.connected = true
+          this.connectionPromise = null
+          resolve()
+        },
+        onDisconnect: () => {
+          this.connected = false
+        },
+        onStompError: (frame) => {
+          this.connectionPromise = null
+          reject(new Error(frame.headers['message']))
+        },
+      })
+
+      this.stompClient.activate()
+    })
+
+    return this.connectionPromise
+  }
+
+  async subscribeToChat(bookingId: string, onMessage: (message: any) => void): Promise<() => void> {
+    await this.connect()
+
+    if (!this.stompClient || !this.connected) {
+      throw new Error('Not connected')
+    }
+
+    const topic = `/topic/chat/${bookingId}`
+    
+    const existingSub = this.subscriptions.get(bookingId)
+    if (existingSub) {
+      existingSub.unsubscribe()
+    }
+
+    const subscription = this.stompClient.subscribe(topic, (message) => {
+      try {
+        const payload = JSON.parse(message.body)
+        onMessage(payload)
+      } catch (error) {
+        console.error('Parse error:', error)
+      }
+    })
+
+    this.subscriptions.set(bookingId, subscription)
+
+    return () => {
+      subscription.unsubscribe()
+      this.subscriptions.delete(bookingId)
+    }
+  }
+
+  async sendMessage(bookingId: string, message: string) {
+    await this.connect()
+
+    if (!this.stompClient || !this.connected) {
+      throw new Error('Not connected')
+    }
+
+    this.stompClient.publish({
+      destination: '/app/chat.send',
+      body: JSON.stringify({ bookingId, message }),
+    })
+  }
+
+  async getChatHistory(bookingId: string) {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${API_URL}/api/chat/history/${bookingId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch history')
+    }
+
+    return response.json()
+  }
+
+  disconnect() {
+    if (this.stompClient) {
+      this.subscriptions.forEach((sub) => sub.unsubscribe())
+      this.subscriptions.clear()
+      this.stompClient.deactivate()
+      this.connected = false
+    }
   }
 }
 
-let stompClient: Client | null = null
-
-export const chatService = {
-  connect(onMessageReceived: (message: any) => void): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const socket = new SockJS(WS_URL)
-      stompClient = new Client({
-        webSocketFactory: () => socket as any,
-        connectHeaders: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        debug: (str) => console.log('🔌 STOMP:', str),
-        onConnect: () => {
-          console.log('✅ Chat WebSocket connected')
-          resolve()
-        },
-        onStompError: (frame) => {
-          console.error('❌ STOMP error:', frame)
-          reject(frame)
-        },
-      })
-
-      stompClient.activate()
-    })
-  },
-
-  subscribe(bookingId: string, callback: (message: any) => void) {
-    if (!stompClient?.connected) {
-      console.error('❌ STOMP client not connected')
-      return
-    }
-
-    const subscription = stompClient.subscribe(
-      `/topic/chat/${bookingId}`,
-      (message) => {
-        const parsedMessage = JSON.parse(message.body)
-        console.log('📨 Message received:', parsedMessage)
-        callback(parsedMessage)
-      }
-    )
-
-    return subscription
-  },
-
-  sendMessage(bookingId: string, message: string) {
-    if (!stompClient?.connected) {
-      console.error('❌ Cannot send message: STOMP client not connected')
-      return
-    }
-
-    const payload = {
-      bookingId,
-      message,
-    }
-
-    stompClient.publish({
-      destination: '/app/chat.send',
-      body: JSON.stringify(payload),
-    })
-
-    console.log('📤 Message sent:', payload)
-  },
-
-  async getChatHistory(bookingId: string): Promise<any[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/chat/history/${bookingId}`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch chat history')
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Failed to fetch chat history:', error)
-      throw error
-    }
-  },
-
-  disconnect() {
-    if (stompClient) {
-      stompClient.deactivate()
-      stompClient = null
-      console.log('🔌 Chat WebSocket disconnected')
-    }
-  },
-}
+export const chatService = new ChatService()

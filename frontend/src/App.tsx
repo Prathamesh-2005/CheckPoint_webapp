@@ -29,14 +29,12 @@ function App() {
       
       const token = localStorage.getItem('token');
       if (token) {
-        // ✅ Verify token is valid before connecting
         const isValid = await authService.isAuthenticated();
         if (isValid) {
           notificationService.connect(token)
         }
       }
       
-      // ✅ Small delay to prevent flash
       setTimeout(() => setInitializing(false), 300)
     }
     
@@ -47,7 +45,6 @@ function App() {
     }
   }, []);
 
-  // ✅ Show loading screen while app initializes
   if (initializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
@@ -63,16 +60,16 @@ function App() {
     <div className="dark">
       <Router>
         <Routes>
-          {/* ✅ Root redirects to login (not a landing page) */}
+          {/* Root redirects to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           
-          {/* ✅ Public routes - redirect to dashboard if already logged in */}
+          {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* ✅ Protected routes - require authentication */}
+          {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/find-ride" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />
           <Route path="/offer-ride" element={<ProtectedRoute><OfferRidePage /></ProtectedRoute>} />

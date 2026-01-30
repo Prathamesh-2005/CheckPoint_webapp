@@ -9,6 +9,7 @@ import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
+import jakarta.annotation.PostConstruct;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,13 @@ public class PaymentService {
 
     @Value("${razorpay.key.secret}")
     private String razorpayKeySecret;
+
+    @PostConstruct
+    public void debugKeys() {
+        System.out.println("KEY ID: " + razorpayKeyId);
+        System.out.println("KEY SECRET: " + razorpayKeySecret);
+    }
+
 
     private final RideRepository rideRepository;
     private final TransactionRepository transactionRepository;
@@ -69,7 +77,7 @@ public class PaymentService {
             JSONObject orderRequest = new JSONObject();
             orderRequest.put("amount", amountInPaise);
             orderRequest.put("currency", "INR");
-            orderRequest.put("receipt", "ride_" + rideId.toString());
+            orderRequest.put("receipt", "ride_" + rideId.toString().substring(0, 20));
 
             Order order = razorpayClient.orders.create(orderRequest);
 

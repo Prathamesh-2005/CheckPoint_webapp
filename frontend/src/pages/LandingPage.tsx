@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   MapPin,
@@ -193,7 +193,7 @@ export function FindRidePage() {
 
   function MapUpdater({ center }: { center: { lat: number; lng: number } }) {
     const map = useMap()
-    React.useEffect(() => {
+    useEffect(() => {
       map.setView([center.lat, center.lng], 13)
     }, [center, map])
     return null
