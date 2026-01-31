@@ -61,16 +61,13 @@ function App() {
     <div className="dark">
       <Router>
         <Routes>
-          {/* Root redirects to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           
-          {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/find-ride" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />
           <Route path="/offer-ride" element={<ProtectedRoute><OfferRidePage /></ProtectedRoute>} />

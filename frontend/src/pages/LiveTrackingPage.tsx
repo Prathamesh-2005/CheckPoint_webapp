@@ -27,7 +27,6 @@ import { rideService } from "@/services/rideService"
 import { bookingService } from "@/services/bookingService"
 import { locationService } from "@/services/locationService"
 
-// ✅ Custom animated vehicle marker
 const createVehicleIcon = (rotation: number = 0) => L.divIcon({
   html: `<div style="
     transform: rotate(${rotation}deg);
@@ -113,7 +112,7 @@ export function LiveTrackingPage() {
   
   const mapRef = useRef<L.Map | null>(null)
   const driverMarkerRef = useRef<L.Marker | null>(null)
-  const animationFrameRef = useRef<number>()
+  const animationFrameRef = useRef<number | undefined>(undefined)
   const previousPositionRef = useRef<{ lat: number; lng: number } | null>(null)
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -134,15 +133,13 @@ export function LiveTrackingPage() {
       const data = await rideService.getRideById(rideId!)
       setRide(data)
       
-      // Load passenger info
-      if (data.bookings && data.bookings.length > 0) {
-        const booking = data.bookings[0]
+      if ((data as any).bookings && Array.isArray((data as any).bookings) && (data as any).bookings.length > 0) {
+        const booking = (data as any).bookings[0]
         setPassengerInfo(booking.user)
         if (!bookingId) {
           setBookingId(booking.bookingId || booking.id)
         }
       } else {
-        // Try to get booking info separately
         if (!bookingId || !passengerInfo) {
           try {
             const bookings = await bookingService.getMyBookings()
