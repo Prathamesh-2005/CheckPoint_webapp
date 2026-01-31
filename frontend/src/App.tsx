@@ -19,6 +19,7 @@ import { Loader2 } from 'lucide-react';
 import { notificationService } from './services/notificationService';
 import { authService } from './services/authService';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Toaster } from "@/components/ui/toaster"
 
 function App() {
   const [initializing, setInitializing] = useState(true);
@@ -83,6 +84,7 @@ function App() {
           <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         </Routes>
       </Router>
+      <Toaster />
     </div>
   )
 }

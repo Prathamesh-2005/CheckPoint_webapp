@@ -12,6 +12,9 @@
         </processorPath>
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="CheckPoint-Backend" target="21" />
+    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">

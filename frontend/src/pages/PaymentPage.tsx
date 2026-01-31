@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { paymentService } from "@/services/paymentService"
 import { rideService } from "@/services/rideService"
+import { useToast } from "@/hooks/use-toast"
 
 export function PaymentPage() {
   const navigate = useNavigate()
@@ -13,6 +14,7 @@ export function PaymentPage() {
   const [rideDetails, setRideDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadRideDetails()
@@ -32,19 +34,31 @@ export function PaymentPage() {
       const data = await rideService.getRideById(rideId!)
 
       if (data.status !== "COMPLETED") {
-        alert("Payment only after ride completion")
-        navigate(`/ride/${rideId}`)
+        toast({
+          title: "Payment Not Available",
+          description: "Payment is only available after ride completion",
+          variant: "destructive",
+        })
+        navigate(`/ride/${rideId}/track`)
         return
       }
 
       if (data.paymentStatus === "COMPLETED") {
-        alert("Payment already completed")
+        toast({
+          title: "Payment Already Completed",
+          description: "This ride has already been paid for",
+        })
         navigate("/my-rides")
         return
       }
 
       setRideDetails(data)
-    } catch (err) {
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: "Failed to load ride details",
+        variant: "destructive",
+      })
       navigate("/my-rides")
     } finally {
       setLoading(false)
@@ -84,11 +98,19 @@ export function PaymentPage() {
               paymentMethod: "UPI",
             })
 
-            alert("Payment successful!")
-            navigate("/my-rides")
+            toast({
+              title: "Payment Successful",
+              description: "Your payment has been completed successfully!",
+            })
+            
+            setTimeout(() => navigate("/my-rides"), 1000)
           } catch (error: any) {
             console.error('Verification error:', error)
-            alert("Payment verification failed: " + (error.message || "Unknown error"))
+            toast({
+              title: "Verification Failed",
+              description: "Payment verification failed. Please contact support.",
+              variant: "destructive",
+            })
             setIsProcessing(false)
           }
         },
@@ -100,9 +122,35 @@ export function PaymentPage() {
       }
 
       const rzp = new (window as any).Razorpay(options)
+      rzp.on('payment.failed', function (response: any) {
+        toast({
+          title: "Payment Failed",
+          description: response.error.description || "Transaction could not be completed",
+          variant: "destructive",
+        })
+        setIsProcessing(false)
+      })
+      
       rzp.open()
     } catch (err: any) {
-      alert(err.message || "Failed to initiate payment")
+      let errorMessage = "Failed to initiate payment"
+      
+      try {
+        if (typeof err.message === 'string') {
+          const parsed = JSON.parse(err.message)
+          errorMessage = parsed.message || errorMessage
+        } else {
+          errorMessage = err.message || errorMessage
+        }
+      } catch {
+        errorMessage = err.message || errorMessage
+      }
+      
+      toast({
+        title: "Payment Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
       setIsProcessing(false)
     }
   }

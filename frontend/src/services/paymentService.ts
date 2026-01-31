@@ -23,7 +23,13 @@ class PaymentService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Payment order error:', errorText);
-      throw new Error(errorText || 'Failed to create payment order');
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || errorText);
+      } catch (parseError) {
+        throw new Error(errorText || 'Failed to create payment order');
+      }
     }
 
     const data = await response.json();
@@ -55,7 +61,13 @@ class PaymentService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Verification failed:', errorText);
-      throw new Error(errorText || 'Payment verification failed');
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || errorText);
+      } catch (parseError) {
+        throw new Error(errorText || 'Payment verification failed');
+      }
     }
 
     return response.json();

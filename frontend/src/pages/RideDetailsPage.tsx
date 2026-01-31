@@ -28,6 +28,7 @@ import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { rideService } from "@/services/rideService"
 import { bookingService } from "@/services/bookingService"
+import { useToast } from "@/hooks/use-toast"
 
 export function RideDetailsPage() {
   const navigate = useNavigate()
@@ -37,6 +38,7 @@ export function RideDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [booking, setBooking] = useState<any>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadRideDetails()
@@ -54,6 +56,24 @@ export function RideDetailsPage() {
   }
 
   const handleBookRide = async () => {
+    if (ride.status === 'COMPLETED') {
+      toast({
+        title: "Ride Completed",
+        description: "This ride has already been completed and cannot be booked.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (ride.availableSeats === 0) {
+      toast({
+        title: "No Seats Available",
+        description: "This ride is fully booked.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsBooking(true)
     try {
       const bookingResponse = await bookingService.requestRide(rideId!)
@@ -64,7 +84,11 @@ export function RideDetailsPage() {
         navigate('/my-rides')
       }, 2000)
     } catch (error: any) {
-      alert(error.message || "Failed to book ride")
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to book ride",
+        variant: "destructive",
+      })
     } finally {
       setIsBooking(false)
     }
@@ -211,32 +235,30 @@ export function RideDetailsPage() {
                   </div>
                 </div>
 
-                <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <div className="flex items-center gap-2 text-blue-400 text-sm mb-1">
-                    <Users className="w-4 h-4" />
-                    <span className="font-semibold">Seats Available</span>
+                {ride.status === 'COMPLETED' ? (
+                  <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg mb-4">
+                    <p className="text-green-400 text-sm font-semibold text-center">
+                      ✅ This ride has been completed
+                    </p>
                   </div>
-                  <p className="text-white text-lg font-bold">{ride.availableSeats}</p>
-                </div>
+                ) : (
+                  <>
+                    <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <div className="flex items-center gap-2 text-blue-400 text-sm mb-1">
+                        <Users className="w-4 h-4" />
+                        <span className="font-semibold">Seats Available</span>
+                      </div>
+                      <p className="text-white text-lg font-bold">{ride.availableSeats}</p>
+                    </div>
 
-                <Button
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold mb-3"
-                  onClick={handleBookRide}
-                  disabled={isBooking || ride.availableSeats === 0}
-                >
-                  {isBooking ? 'Booking...' : 'Book This Ride'}
-                </Button>
-
-                {/* ✅ Only show chat button if user has a booking */}
-                {booking && (
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 border-white/20 text-white hover:bg-white/10 mb-3"
-                    onClick={() => navigate(`/chat?bookingId=${booking.id}&name=${ride.driver?.firstName} ${ride.driver?.lastName}&avatar=${ride.driver?.profileImageUrl || ''}`)}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Chat with Driver
-                  </Button>
+                    <Button
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold mb-3"
+                      onClick={handleBookRide}
+                      disabled={isBooking || ride.availableSeats === 0}
+                    >
+                      {isBooking ? 'Booking...' : 'Book This Ride'}
+                    </Button>
+                  </>
                 )}
 
                 <div className="space-y-2 text-xs text-white/60">

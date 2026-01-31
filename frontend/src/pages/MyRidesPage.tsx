@@ -30,6 +30,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { useNavigate } from "react-router-dom"
 import { rideService } from "@/services/rideService"
 import { bookingService } from "@/services/bookingService"
+import { locationService } from "@/services/locationService"
 
 export function MyRidesPage() {
   const [activeTab, setActiveTab] = useState("all")
@@ -56,15 +57,11 @@ export function MyRidesPage() {
   const loadRides = async () => {
     try {
       const data = await rideService.getMyRides()
-      
-      // ✅ Fetch all bookings once at the beginning
       const allBookings = await bookingService.getMyBookings()
       
       const currentUserId = currentUser.id
       const ridesWithBookings = data.map((ride: any) => {
         const isDriver = ride.driver?.id === currentUserId
-        
-        // ✅ Find booking for this ride
         const booking = allBookings.find((b: any) => b.ride?.id === ride.id)
         
         return { 
@@ -74,7 +71,20 @@ export function MyRidesPage() {
         }
       })
       
+      ridesWithBookings.sort((a: any, b: any) => 
+        new Date(b.departureTime).getTime() - new Date(a.departureTime).getTime()
+      )
+      
       setRides(ridesWithBookings)
+      
+      // ✅ Load addresses for all rides
+      const addressMap = new Map()
+      for (const ride of ridesWithBookings) {
+        const pickup = await locationService.getAddress(ride.startLatitude, ride.startLongitude)
+        const drop = await locationService.getAddress(ride.endLatitude, ride.endLongitude)
+        addressMap.set(ride.id, { pickup, drop })
+      }
+      setRideAddresses(addressMap)
     } catch (error) {
       console.error("Failed to load rides:", error)
     } finally {
@@ -82,14 +92,24 @@ export function MyRidesPage() {
     }
   }
 
+  const [rideAddresses, setRideAddresses] = useState<Map<string, any>>(new Map())
+
   const filteredRides = rides.filter((ride) => {
     const matchesSearch = searchQuery === ""
     
     if (activeTab === "all") return matchesSearch
-    if (activeTab === "upcoming") return (ride.status === "REQUESTED" || ride.status === "CONFIRMED") && matchesSearch
-    if (activeTab === "completed") return ride.status === "COMPLETED" && matchesSearch
-    if (activeTab === "offered") return matchesSearch
-    if (activeTab === "booked") return matchesSearch
+    if (activeTab === "upcoming") {
+      return (ride.status === "CONFIRMED" || ride.status === "IN_PROGRESS") && matchesSearch
+    }
+    if (activeTab === "completed") {
+      return ride.status === "COMPLETED" && matchesSearch
+    }
+    if (activeTab === "offered") {
+      return ride.isDriver && matchesSearch
+    }
+    if (activeTab === "booked") {
+      return !ride.isDriver && matchesSearch
+    }
     
     return matchesSearch
   })
@@ -198,206 +218,233 @@ export function MyRidesPage() {
                               </Card>
                             ) : (
                               filteredRides.map((ride) => {
-                                // ✅ Determine if current user is the driver of this ride
+                                const addresses = rideAddresses.get(ride.id)
                                 const isDriver = currentUser.id === ride.driver?.id
+                                const rideCompleted = ride.status === 'COMPLETED'
+                                const paymentCompleted = String(ride.paymentStatus).toUpperCase() === 'COMPLETED'
+                                const isPassenger = !isDriver
+                                const showPayButton = rideCompleted && isPassenger && !paymentCompleted
 
                                 return (
-                                <Card
-                                  key={ride.id}
-                                  className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
-                                >
-                                  <CardContent className="p-4">
-                                    <div className="flex flex-col sm:flex-row gap-4">
-                                      <div className="flex-1 space-y-3">
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div className="flex items-center gap-2">
+                                  <Card
+                                    key={ride.id}
+                                    className="border-white/5 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                                  >
+                                    <CardContent className="p-4">
+                                      <div className="flex flex-col sm:flex-row gap-4">
+                                        <div className="flex-1 space-y-3">
+                                          <div className="flex items-start justify-between gap-2">
                                             <Badge variant="outline" className={`text-xs ${getStatusColor(ride.status)}`}>
                                               {getStatusIcon(ride.status)}
                                               <span className="ml-1 capitalize">{ride.status}</span>
                                             </Badge>
                                           </div>
+
+                                          <div className="space-y-2">
+                                            <div className="flex items-start gap-2 text-sm">
+                                              <MapPin className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                              <div>
+                                                <p className="text-white font-medium">{addresses?.pickup?.placeName || 'Loading...'}</p>
+                                                <p className="text-xs text-white/40">{addresses?.pickup?.city}</p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-start gap-2 text-sm">
+                                              <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                              <div>
+                                                <p className="text-white font-medium">{addresses?.drop?.placeName || 'Loading...'}</p>
+                                                <p className="text-xs text-white/40">{addresses?.drop?.city}</p>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+                                            <div className="flex items-center gap-1">
+                                              <Calendar className="w-3 h-3" />
+                                              <span>{new Date(ride.departureTime).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <Clock className="w-3 h-3" />
+                                              <span>{new Date(ride.departureTime).toLocaleTimeString()}</span>
+                                            </div>
+                                          </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2 text-sm">
-                                            <MapPin className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                            <span className="text-white font-medium">
-                                              Lat: {ride.startLatitude}, Lng: {ride.startLongitude}
-                                            </span>
+                                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-3 sm:pt-0 sm:pl-4 sm:min-w-[120px]">
+                                          <div className="text-right">
+                                            <div className="text-2xl font-bold text-white">₹{ride.price}</div>
+                                            <p className="text-xs text-white/40">Total</p>
                                           </div>
-                                          <div className="flex items-center gap-2 text-sm">
-                                            <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                            <span className="text-white font-medium">
-                                              Lat: {ride.endLatitude}, Lng: {ride.endLongitude}
-                                            </span>
-                                          </div>
-                                        </div>
+                                          
 
-                                        <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                                          <div className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            <span>{new Date(ride.departureTime).toLocaleDateString()}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            <span>{new Date(ride.departureTime).toLocaleTimeString()}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-3 sm:pt-0 sm:pl-4 sm:min-w-[120px]">
-                                        <div className="text-right">
-                                          <div className="text-2xl font-bold text-white">₹{ride.price}</div>
-                                          <p className="text-xs text-white/40">Total</p>
-                                        </div>
-                                        
-                                        {/* ✅ Show chat button only for CONFIRMED/IN_PROGRESS rides with booking */}
-                                        {ride.userBooking && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && !ride.isDriver && (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="border-white/20 w-full"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              const driverName = `${ride.driver?.firstName || ''} ${ride.driver?.lastName || ''}`.trim()
-                                              navigate(`/chat?bookingId=${ride.userBooking.id}&name=${driverName}&avatar=${ride.driver?.profileImageUrl || ''}`)
-                                            }}
-                                          >
-                                            <MessageCircle className="w-4 h-4 mr-2" />
-                                            Chat with Driver
-                                          </Button>
-                                        )}
-
-                                        {/* ✅ Driver can see chat with passengers after accepting */}
-                                        {ride.isDriver && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && ride.userBooking && (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="border-white/20 w-full"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              navigate(`/chat?bookingId=${ride.userBooking.id}&name=Passenger&avatar=`)
-                                            }}
-                                          >
-                                            <MessageCircle className="w-4 h-4 mr-2" />
-                                            Chat with Passenger
-                                          </Button>
-                                        )}
-
-                                        {ride.status === 'AVAILABLE' && (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="border-white/20 mt-2"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              navigate(`/ride/${ride.id}`)
-                                            }}
-                                          >
-                                            View Details
-                                          </Button>
-                                        )}
-                                        
-                                        {ride.status === 'CONFIRMED' && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              className="bg-green-600 hover:bg-green-700 mt-2"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                navigate(`/ride/${ride.id}/track`)
-                                              }}
-                                            >
-                                              {isDriver ? 'Start Ride' : 'Track Ride'}
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="border-white/20"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                navigate(`/ride/${ride.id}`)
-                                              }}
-                                            >
-                                              Details
-                                            </Button>
-                                          </>
-                                        )}
-                                        
-                                        {ride.status === 'IN_PROGRESS' && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              className="bg-blue-600 hover:bg-blue-700 mt-2"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                navigate(`/ride/${ride.id}/track`)
-                                              }}
-                                            >
-                                              Track Live
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="border-white/20"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                navigate(`/ride/${ride.id}`)
-                                              }}
-                                            >
-                                              Details
-                                            </Button>
-                                          </>
-                                        )}
-                                        
-                                        {ride.status === 'COMPLETED' && !isDriver && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              className="bg-purple-600 hover:bg-purple-700 mt-2 w-full"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                navigate(`/ride/${ride.id}/payment`)
-                                              }}
-                                            >
-                                              💳 Pay Now
-                                            </Button>
+                                          {ride.userBooking && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && !ride.isDriver && (
                                             <Button
                                               size="sm"
                                               variant="outline"
                                               className="border-white/20 w-full"
                                               onClick={(e) => {
                                                 e.stopPropagation()
-                                                navigate(`/ride/${ride.id}`)
+                                                const driverName = `${ride.driver?.firstName || ''} ${ride.driver?.lastName || ''}`.trim()
+                                                navigate(`/chat?bookingId=${ride.userBooking.id}&name=${driverName}&avatar=${ride.driver?.profileImageUrl || ''}`)
                                               }}
                                             >
-                                              Details
+                                              <MessageCircle className="w-4 h-4 mr-2" />
+                                              Chat with Driver
                                             </Button>
-                                          </>
-                                        )}
-                                        
-                                        {ride.status === 'COMPLETED' && isDriver && (
-                                          <>
-                                            <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
-                                              ✅ Completed
-                                            </Badge>
+                                          )}
+
+                                          {ride.isDriver && (ride.status === 'CONFIRMED' || ride.status === 'IN_PROGRESS') && ride.userBooking && (
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              className="border-white/20"
+                                              className="border-white/20 w-full"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/chat?bookingId=${ride.userBooking.id}&name=Passenger&avatar=`)
+                                              }}
+                                            >
+                                              <MessageCircle className="w-4 h-4 mr-2" />
+                                              Chat with Passenger
+                                            </Button>
+                                          )}
+
+                                          {ride.status === 'AVAILABLE' && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-white/20 mt-2"
                                               onClick={(e) => {
                                                 e.stopPropagation()
                                                 navigate(`/ride/${ride.id}`)
                                               }}
                                             >
-                                              Details
+                                              View Details
                                             </Button>
-                                          </>
-                                        )}
+                                          )}
+                                          
+
+                                          {ride.status === 'CONFIRMED' && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700 mt-2"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}/track`)
+                                                }}
+                                              >
+                                                {isDriver ? 'Start Ride' : 'Track Ride'}
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}`)
+                                                }}
+                                              >
+                                                Details
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+
+                                          {ride.status === 'IN_PROGRESS' && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                className="bg-blue-600 hover:bg-blue-700 mt-2"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}/track`)
+                                                }}
+                                              >
+                                                Track Live
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}`)
+                                                }}
+                                              >
+                                                Details
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+
+                                          {showPayButton && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                className="bg-purple-600 hover:bg-purple-700 mt-2 w-full"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}/payment`)
+                                                }}
+                                              >
+                                                💳 Pay Now
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20 w-full"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}`)
+                                                }}
+                                              >
+                                                Details
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+
+                                          {rideCompleted && isPassenger && paymentCompleted && (
+                                            <>
+                                              <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                                                ✅ Paid
+                                              </Badge>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}`)
+                                                }}
+                                              >
+                                                Details
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+
+                                          {rideCompleted && isDriver && (
+                                            <>
+                                              <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                                                ✅ Completed
+                                              </Badge>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  navigate(`/ride/${ride.id}`)
+                                                }}
+                                              >
+                                                Details
+                                              </Button>
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
+                                    </CardContent>
+                                  </Card>
                                 )
                               })
                             )}
