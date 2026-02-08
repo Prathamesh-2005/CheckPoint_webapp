@@ -58,6 +58,9 @@ public class User implements UserDetails {
     @Embedded
     private BankDetails bankDetails;
 
+    @Embedded
+    private VehicleDetails vehicleDetails;
+
     @JsonIgnore
     @OneToMany(mappedBy = "driver", fetch = FetchType.LAZY)
     private List<Ride> rides;
@@ -228,5 +231,13 @@ public class User implements UserDetails {
 
     public void setBankDetails(BankDetails bankDetails) {
         this.bankDetails = bankDetails;
+    }
+
+    public VehicleDetails getVehicleDetails() {
+        return vehicleDetails;
+    }
+
+    public void setVehicleDetails(VehicleDetails vehicleDetails) {
+        this.vehicleDetails = vehicleDetails;
     }
 }

@@ -130,12 +130,10 @@ public class RideService {
     @Transactional
     public RideResponse getRideById(UUID rideId) {
         Ride ride = rideRepository.findById(rideId)
-                .orElseThrow(() -> new EntityNotFoundException("Ride not found with id: " + rideId));
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        // Force initialize driver
-        ride.getDriver().getId();
-        ride.getDriver().getFirstName();
-
+        // ✅ Vehicle details are automatically included because User has @Embedded
+        // VehicleDetails
         return new RideResponse(ride);
     }
 

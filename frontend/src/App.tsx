@@ -11,7 +11,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { WalletPage } from "./pages/WalletPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { ChatPage } from "./pages/ChatPage";
-import { RideDetailsPage } from "./pages/RideDetailsPage";
+import {RideDetailsPage}  from "./pages/RideDetailsPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { LiveTrackingPage } from "./pages/LiveTrackingPage";
 import { useState, useEffect } from 'react';
@@ -19,7 +19,8 @@ import { Loader2 } from 'lucide-react';
 import { notificationService } from './services/notificationService';
 import { authService } from './services/authService';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "sonner"
+
 
 function App() {
   const [initializing, setInitializing] = useState(true);
@@ -45,7 +46,7 @@ function App() {
       notificationService.disconnect()
     }
   }, []);
-
+<Toaster position="top-right" theme="dark" richColors />
   if (initializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">

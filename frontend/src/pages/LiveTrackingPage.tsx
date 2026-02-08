@@ -133,6 +133,20 @@ export function LiveTrackingPage() {
       const data = await rideService.getRideById(rideId!)
       setRide(data)
       
+      // ✅ Extract and log vehicle details
+      console.log('🔍 Full ride data:', data)
+      console.log('🔍 Driver object:', data.driver)
+      console.log('🔍 Vehicle details from driver:', (data.driver as any)?.vehicleDetails)
+      
+      const vehicleDetails = (data.driver as any)?.vehicleDetails || (data as any)?.vehicleDetails
+      if (vehicleDetails) {
+        console.log('✅ Setting vehicle details:', vehicleDetails)
+        setDriverVehicleDetails(vehicleDetails)
+      } else {
+        console.warn('⚠️ No vehicle details found for driver')
+        setDriverVehicleDetails(null)
+      }
+      
       if ((data as any).bookings && Array.isArray((data as any).bookings) && (data as any).bookings.length > 0) {
         const booking = (data as any).bookings[0]
         setPassengerInfo(booking.user)
@@ -307,6 +321,8 @@ export function LiveTrackingPage() {
     }
   }
 
+  const [driverVehicleDetails, setDriverVehicleDetails] = useState<any>(null)
+
   function MapController() {
     const map = useMap()
     
@@ -318,8 +334,7 @@ export function LiveTrackingPage() {
       }
       
       const handleZoomStart = () => {
-        // Allow user to zoom without losing tracking
-        // Don't set userCanPan on zoom
+
       }
       
       map.on('dragstart', handleDragStart)
@@ -580,25 +595,33 @@ export function LiveTrackingPage() {
                       Verified
                     </Badge>
                   </div>
-                  <div className="pt-2 border-t space-y-1">
-                    <p className="text-gray-600">
-                      <span className="font-semibold">Vehicle:</span> {ride.driver?.vehicleNumber || 'KA-01-1234'}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-semibold">Model:</span> {ride.driver?.vehicleModel || 'Toyota Innova'}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-semibold">Distance to {ride.status === "CONFIRMED" ? "pickup" : "destination"}:</span> {distance.toFixed(1)} km
-                    </p>
-                  </div>
-                  {ride.driver?.phone && (
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                      <Phone className="w-3 h-3 text-blue-500" />
-                      <a href={`tel:${ride.driver.phone}`} className="text-blue-600 hover:underline">
-                        {ride.driver.phone}
-                      </a>
+                  
+                  {/* ✅ Only show vehicle details if they exist */}
+                  {driverVehicleDetails ? (
+                    <div className="pt-2 border-t space-y-1">
+                      <p className="text-gray-600">
+                        <span className="font-semibold">Vehicle:</span> {driverVehicleDetails.vehicleNumber}
+                      </p>
+                      <p className="text-gray-600">
+                        <span className="font-semibold">Model:</span> {driverVehicleDetails.vehicleModel}
+                      </p>
+                      {driverVehicleDetails.vehicleColor && (
+                        <p className="text-gray-600">
+                          <span className="font-semibold">Color:</span> {driverVehicleDetails.vehicleColor}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t">
+                      <p className="text-gray-500 text-xs italic">
+                        ℹ️ Vehicle details not available
+                      </p>
                     </div>
                   )}
+                  
+                  <p className="text-gray-600 pt-2 border-t">
+                    <span className="font-semibold">Distance:</span> {distance.toFixed(1)} km to {ride.status === "CONFIRMED" ? "pickup" : "destination"}
+                  </p>
                 </div>
               </div>
             </Popup>
@@ -721,11 +744,40 @@ export function LiveTrackingPage() {
                   <p className="text-xs text-white/40">ETA</p>
                   <p className="text-sm font-bold text-green-400">{eta}</p>
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs text-white/40">Vehicle</p>
-                  <p className="text-sm font-bold text-white">{ride.driver?.vehicleNumber || 'KA-01-1234'}</p>
-                </div>
+                {!isDriver && driverVehicleDetails?.vehicleNumber && (
+                  <div className="flex-1">
+                    <p className="text-xs text-white/40">Vehicle</p>
+                    <p className="text-sm font-bold text-white">
+                      {driverVehicleDetails.vehicleNumber}
+                    </p>
+                  </div>
+                )}
               </div>
+              
+              {/* ✅ Show vehicle model ONLY for passengers and ONLY if exists */}
+              {!isDriver && driverVehicleDetails && (
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">Model</span>
+                    <span className="text-white font-medium">{driverVehicleDetails.vehicleModel || 'N/A'}</span>
+                  </div>
+                  {driverVehicleDetails.vehicleColor && (
+                    <div className="flex items-center justify-between text-xs mt-1">
+                      <span className="text-white/40">Color</span>
+                      <span className="text-white font-medium">{driverVehicleDetails.vehicleColor}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* ✅ Show warning if driver hasn't set vehicle details */}
+              {!isDriver && !driverVehicleDetails && (
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <p className="text-xs text-yellow-400 text-center">
+                    ℹ️ Driver vehicle details not available
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

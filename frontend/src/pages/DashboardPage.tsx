@@ -20,6 +20,7 @@ import {
   Clock,
   DollarSign,
   MessageCircle,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +31,18 @@ import { AppSidebar } from "@/components/AppSidebar"
 import { Spinner } from "@/components/ui/spinner"
 import { useNavigate } from "react-router-dom"
 import { rideService } from "@/services/rideService"
+import { VehicleSetupModal } from "@/components/VehicleSetupModal"
+import { userService } from "@/services/userService"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -41,7 +54,8 @@ export function DashboardPage() {
   })
   const [recentRides, setRecentRides] = useState<any[]>([])
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}')
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const [hasVehicleDetails, setHasVehicleDetails] = useState(true)
 
   useEffect(() => {
     loadDashboardData()
@@ -61,6 +75,35 @@ export function DashboardPage() {
       console.error("Failed to load dashboard data:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const [showVehicleSetup, setShowVehicleSetup] = useState(false)
+  const [showVehicleAlert, setShowVehicleAlert] = useState(false)
+  const [vehicleDetails, setVehicleDetails] = useState<any>(null)
+
+  useEffect(() => {
+    loadUserProfile()
+  }, [])
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await userService.getProfile()
+      
+      const updatedUser = {
+        ...JSON.parse(localStorage.getItem('user') || '{}'),
+        vehicleDetails: profile.vehicleDetails
+      }
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      
+      setVehicleDetails(profile.vehicleDetails)
+      setHasVehicleDetails(!!profile.vehicleDetails)
+      
+      if (!profile.vehicleDetails) {
+        setShowVehicleAlert(true)
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error)
     }
   }
 
@@ -101,7 +144,7 @@ export function DashboardPage() {
           </header>
 
           {/* Dashboard Content */}
-          <div className="p-4 md:p-8 space-y-6">
+          <div className="p-4 md:p-6 lg:p-8 space-y-6">
             {/* Stats Grid - Now Memoized */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card className="border-white/5 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
@@ -319,6 +362,48 @@ export function DashboardPage() {
           </div>
         </main>
       </div>
+
+    <AlertDialog open={showVehicleAlert} onOpenChange={setShowVehicleAlert}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle className="flex items-center gap-2">
+        <Car className="h-5 w-5 text-blue-500" />
+        Vehicle Details Required
+      </AlertDialogTitle>
+      <AlertDialogDescription>
+        You haven't added your vehicle details yet. Adding your vehicle
+        information allows you to offer rides and start earning money. You
+        can always add them later from your profile.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+
+    <AlertDialogFooter>
+      <AlertDialogCancel>
+        Skip for Now
+      </AlertDialogCancel>
+
+      <AlertDialogAction
+        onClick={() => {
+          setShowVehicleAlert(false)
+          setShowVehicleSetup(true)
+        }}
+      >
+        Add Vehicle Details
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+
+
+      {showVehicleSetup && (
+        <VehicleSetupModal
+          onComplete={() => {
+            setShowVehicleSetup(false)
+            loadUserProfile() // Reload to get updated vehicle details
+          }}
+          onSkip={() => setShowVehicleSetup(false)}
+        />
+      )}
     </SidebarProvider>
   )
 }

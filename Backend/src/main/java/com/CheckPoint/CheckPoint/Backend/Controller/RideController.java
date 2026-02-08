@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/rides") // ✅ Keep this consistent
+@RequestMapping("/api/rides") 
 @CrossOrigin(origins = { "http://127.0.0.1:5500/", "http://localhost:5173" })
 @Validated
 public class RideController {
@@ -36,7 +36,7 @@ public class RideController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    @GetMapping("/search") // ✅ Route: /api/rides/search
+    @GetMapping("/search") 
     public ResponseEntity<List<RideResponse>> searchRides(
             @RequestParam double startLat,
             @RequestParam double startLng,

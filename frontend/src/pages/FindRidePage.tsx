@@ -480,7 +480,7 @@ const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
 }) => {
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -510,7 +510,7 @@ const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <Input
         placeholder={placeholder}
         value={value}
@@ -520,9 +520,8 @@ const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
       />
       {showDropdown && suggestions.length > 0 && (
         <div 
-          ref={dropdownRef}
           onWheel={handleWheel}
-          className="absolute left-0 right-0 top-full mt-2 z-[9999] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl backdrop-blur-sm overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-2 z-50 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden"
         >
           <div className="max-h-64 overflow-y-auto">
             <div className="p-2">
@@ -535,7 +534,7 @@ const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
                   onClick={() => handleSelect(item)}
                 >
                   <MapPin className="w-4 h-4 text-blue-400 mt-1 flex-shrink-0" />
-                  <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium mb-1 break-words">
                       {item.display_name.split(',')[0]}
                     </p>

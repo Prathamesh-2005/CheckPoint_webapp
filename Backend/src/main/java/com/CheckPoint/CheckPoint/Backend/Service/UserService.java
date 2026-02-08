@@ -1,6 +1,7 @@
 package com.CheckPoint.CheckPoint.Backend.Service;
 
 import com.CheckPoint.CheckPoint.Backend.Model.User;
+import com.CheckPoint.CheckPoint.Backend.Model.VehicleDetails;
 import com.CheckPoint.CheckPoint.Backend.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -98,14 +99,7 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public User updateUser(User user) {
-        User existingUser = userRepository.findById(user.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            existingUser.setPassword(user.getPassword());
-        }
-
-        return userRepository.save(existingUser);
+        return userRepository.save(user);
     }
 
     @Transactional
@@ -119,6 +113,20 @@ public class UserService implements UserDetailsService {
         user.setCredentialsNonExpired(true);
         user.setEnabled(true);
 
+        return userRepository.save(user);
+    }
+
+    public User getUserProfile(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Transactional
+    public User updateVehicleDetails(UUID userId, VehicleDetails vehicleDetails) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setVehicleDetails(vehicleDetails);
         return userRepository.save(user);
     }
 }

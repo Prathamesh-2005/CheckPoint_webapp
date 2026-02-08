@@ -2,6 +2,7 @@ package com.CheckPoint.CheckPoint.Backend.DTO;
 
 import com.CheckPoint.CheckPoint.Backend.Model.Ride;
 import com.CheckPoint.CheckPoint.Backend.Model.RideStatus;
+import com.CheckPoint.CheckPoint.Backend.Model.VehicleDetails;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -33,16 +34,19 @@ public class RideResponse {
         this.endLatitude = ride.getEndLatitude();
         this.endLongitude = ride.getEndLongitude();
         this.departureTime = ride.getDepartureTime();
+
+        // Safe assignments
         this.price = ride.getPrice();
+        this.platformFee = ride.getPlatformFee();
+        this.driverEarnings = ride.getDriverEarnings();
+
         this.status = ride.getStatus().name();
         this.availableSeats = ride.getAvailableSeats();
         this.createdAt = ride.getCreatedAt();
-        this.paymentStatus = ride.getPaymentStatus() != null ? ride.getPaymentStatus().name() : "PENDING"; // ✅ Convert
-                                                                                                           // enum to
-                                                                                                           // string
+        this.paymentStatus = ride.getPaymentStatus() != null
+                ? ride.getPaymentStatus().name()
+                : null;
         this.paymentMethod = ride.getPaymentMethod();
-        this.platformFee = ride.getPlatformFee();
-        this.driverEarnings = ride.getDriverEarnings();
 
         if (ride.getDriver() != null) {
             this.driver = new DriverInfo();
@@ -51,8 +55,16 @@ public class RideResponse {
             this.driver.setLastName(ride.getDriver().getLastName());
             this.driver.setEmail(ride.getDriver().getEmail());
             this.driver.setProfileImageUrl(ride.getDriver().getProfileImageUrl());
+            this.driver.setVehicleDetails(ride.getDriver().getVehicleDetails());
+
+            System.out.println("🚗 Driver: " +
+                    ride.getDriver().getFirstName() + " " +
+                    ride.getDriver().getLastName());
+            System.out.println("🚗 Vehicle Details in RideResponse: " +
+                    ride.getDriver().getVehicleDetails());
         }
     }
+
 
     @Data
     public static class DriverInfo {
@@ -61,5 +73,6 @@ public class RideResponse {
         private String lastName;
         private String email;
         private String profileImageUrl;
+        private VehicleDetails vehicleDetails;
     }
 }

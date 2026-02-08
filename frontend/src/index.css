@@ -188,3 +188,16 @@
 [data-sidebar="true"] {
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+@keyframes ride-full {
+  0% {
+    left: 0%;
+  }
+  100% {
+    left: calc(100% - 80px);
+  }
+}
+
+.animate-ride-once {
+  animation: ride-full 3s ease-in-out 1 forwards;
+}
