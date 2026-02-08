@@ -1,5 +1,54 @@
 const API_URL = 'http://localhost:8080/api/payments';
 
+export interface Transaction {
+  id: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  description: string;
+  date: string;
+  createdAt?: string;
+  status: 'completed' | 'pending' | 'failed';
+  category: string;
+  rideId?: string;
+  bookingId?: string;
+  riderId?: string;
+  riderName?: string;
+  riderPhone?: string;
+  vehicleModel?: string;
+  vehicleNumber?: string;
+  vehicleColor?: string;
+  rider?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    email?: string;
+    profileImageUrl?: string;
+    vehicleDetails?: {
+      vehicleModel?: string;
+      vehicleNumber?: string;
+      vehicleColor?: string;
+      vehicleType?: string;
+    };
+  };
+  driver?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    email?: string;
+    profileImageUrl?: string;
+    vehicleDetails?: {
+      vehicleModel?: string;
+      vehicleNumber?: string;
+      vehicleColor?: string;
+      vehicleType?: string;
+    };
+  };
+  ride?: any;
+  booking?: any;
+}
+
 class PaymentService {
   private getHeaders() {
     const token = localStorage.getItem('token');
@@ -73,12 +122,51 @@ class PaymentService {
     return response.json();
   }
 
-  async getTransactionHistory(): Promise<any[]> {
-    return [];
+  async getTransactionHistory(): Promise<Transaction[]> {
+    try {
+      console.log('📜 Fetching transaction history...');
+      
+      const response = await fetch(`${API_URL}/history`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Failed to fetch transactions:', response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log('✅ Transactions loaded:', data.length);
+      console.log('📦 Transaction sample:', data[0]);
+      return data;
+    } catch (error) {
+      console.error('❌ Transaction history error:', error);
+      return [];
+    }
   }
 
   async getPendingEarnings(): Promise<{ pendingEarnings: number }> {
-    return { pendingEarnings: 0 };
+    try {
+      console.log('💰 Fetching pending earnings...');
+      
+      const response = await fetch(`${API_URL}/earnings/pending`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Failed to fetch earnings:', response.status);
+        return { pendingEarnings: 0 };
+      }
+
+      const data = await response.json();
+      console.log('✅ Earnings loaded:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Pending earnings error:', error);
+      return { pendingEarnings: 0 };
+    }
   }
 }
 

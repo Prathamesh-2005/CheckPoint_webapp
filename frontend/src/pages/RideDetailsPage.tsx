@@ -100,41 +100,38 @@ const generateReceiptPDF = (ride: any, pickupAddress: string, dropAddress: strin
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #fff; padding: 16px; color: #1e293b; }
-    .receipt { max-width: 460px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 18px 20px; text-align: center; color: #fff; position: relative; }
-    .header::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 14px; background: #fff; border-radius: 14px 14px 0 0; }
-    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-    .logo-sub { font-size: 11px; opacity: 0.8; font-weight: 500; margin-top: 2px; }
-    .body { padding: 18px 20px; }
-    .booking-id { text-align: center; margin-bottom: 14px; }
-    .booking-id .label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 600; }
-    .booking-id .value { font-size: 11px; font-weight: 700; color: #475569; margin-top: 2px; font-family: monospace; }
-    .status-badge { display: inline-block; padding: 3px 12px; border-radius: 100px; font-size: 10px; font-weight: 700; background: #dcfce7; color: #15803d; margin-top: 4px; }
-    .route-section { background: #f8fafc; border-radius: 10px; padding: 14px; margin-bottom: 14px; position: relative; }
-    .route-point { display: flex; align-items: flex-start; gap: 10px; }
-    .route-point + .route-point { margin-top: 12px; }
-    .route-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 2px; flex-shrink: 0; }
-    .route-dot.pickup { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
-    .route-dot.drop { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
-    .route-line { position: absolute; left: 18px; top: 40px; width: 2px; height: 16px; background: linear-gradient(to bottom, #22c55e, #ef4444); }
-    .route-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #94a3b8; font-weight: 700; margin-bottom: 1px; }
-    .route-address { font-size: 11px; font-weight: 600; color: #334155; line-height: 1.3; }
-    .section { margin-bottom: 12px; }
-    .section-title { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f1f5f9; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .info-item .label { font-size: 9px; color: #94a3b8; font-weight: 500; margin-bottom: 1px; }
-    .info-item .value { font-size: 12px; font-weight: 600; color: #1e293b; }
-    .total { display: flex; justify-content: space-between; align-items: center; padding: 14px; background: linear-gradient(135deg, #eff6ff, #f0f9ff); border-radius: 10px; border: 1px solid #dbeafe; }
-    .total .label { font-size: 13px; font-weight: 600; color: #475569; }
-    .total .value { font-size: 22px; font-weight: 800; color: #2563eb; }
-    .footer { text-align: center; padding: 12px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; }
-    .footer p { font-size: 10px; color: #94a3b8; font-weight: 500; }
-    .footer .brand { font-weight: 700; color: #64748b; margin-top: 2px; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+    body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background: #ffffff; padding: 20px; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .receipt { max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 2px solid #e5e7eb; }
+    .header { background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%); padding: 24px 28px; text-align: center; color: #ffffff; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 16px; background: #ffffff; border-radius: 16px 16px 0 0; }
+    .logo { font-size: 26px; font-weight: 900; letter-spacing: -0.8px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .logo-sub { font-size: 12px; opacity: 0.95; font-weight: 600; margin-top: 4px; letter-spacing: 0.5px; }
+    .body { padding: 24px 28px; }
+    .route-section { background: #f9fafb; border-radius: 12px; padding: 18px; margin-bottom: 18px; position: relative; border: 1px solid #e5e7eb; }
+    .route-point { display: flex; align-items: flex-start; gap: 12px; }
+    .route-point + .route-point { margin-top: 16px; }
+    .route-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; border: 2px solid #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .route-dot.pickup { background: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,0.2); }
+    .route-dot.drop { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,0.2); }
+    .route-line { position: absolute; left: 22px; top: 48px; width: 3px; height: 20px; background: linear-gradient(to bottom, #10b981, #ef4444); border-radius: 2px; }
+    .route-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #6b7280; font-weight: 800; margin-bottom: 3px; }
+    .route-address { font-size: 12px; font-weight: 600; color: #1f2937; line-height: 1.4; }
+    .section { margin-bottom: 16px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px; color: #6b7280; font-weight: 800; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .info-item .label { font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-item .value { font-size: 13px; font-weight: 700; color: #111827; }
+    .total { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; background: linear-gradient(135deg, #dbeafe, #e0e7ff); border-radius: 12px; border: 2px solid #93c5fd; margin-top: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .total .label { font-size: 14px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; }
+    .total .value { font-size: 26px; font-weight: 900; color: #1d4ed8; }
+    .footer { text-align: center; padding: 16px 28px; background: #f9fafb; border-top: 2px solid #e5e7eb; }
+    .footer p { font-size: 11px; color: #6b7280; font-weight: 600; }
+    .footer .brand { font-weight: 800; color: #374151; margin-top: 4px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
     @media print {
-      body { padding: 0; }
-      .receipt { box-shadow: none; border: none; }
-      @page { margin: 10mm; size: A4; }
+      body { padding: 0; background: white; }
+      .receipt { box-shadow: none; border: 1px solid #000; max-width: 100%; }
+      @page { margin: 15mm; size: A4 portrait; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
   </style>
 </head>
@@ -145,17 +142,11 @@ const generateReceiptPDF = (ride: any, pickupAddress: string, dropAddress: strin
       <div class="logo-sub">Ride Receipt</div>
     </div>
     <div class="body">
-      <div class="booking-id">
-        <div class="label">Booking ID</div>
-        <div class="value">${ride.id}</div>
-        <span class="status-badge">${ride.status}</span>
-      </div>
-      
       <div class="route-section">
         <div class="route-point">
           <div class="route-dot pickup"></div>
           <div>
-            <div class="route-label">Pickup</div>
+            <div class="route-label">Pickup Location</div>
             <div class="route-address">${pickupAddress}</div>
           </div>
         </div>
@@ -163,7 +154,7 @@ const generateReceiptPDF = (ride: any, pickupAddress: string, dropAddress: strin
         <div class="route-point">
           <div class="route-dot drop"></div>
           <div>
-            <div class="route-label">Drop-off</div>
+            <div class="route-label">Drop-off Location</div>
             <div class="route-address">${dropAddress}</div>
           </div>
         </div>
@@ -172,10 +163,10 @@ const generateReceiptPDF = (ride: any, pickupAddress: string, dropAddress: strin
       <div class="section">
         <div class="section-title">Driver Details</div>
         <div class="info-grid">
-          <div class="info-item"><div class="label">Name</div><div class="value">${driverName}</div></div>
-          <div class="info-item"><div class="label">Vehicle</div><div class="value">${vehicleModel}</div></div>
-          <div class="info-item"><div class="label">Plate No.</div><div class="value">${vehicleNumber}</div></div>
-          <div class="info-item"><div class="label">Color</div><div class="value" style="text-transform:capitalize">${vehicleColor}</div></div>
+          <div class="info-item"><div class="label">Driver Name</div><div class="value">${driverName}</div></div>
+          <div class="info-item"><div class="label">Vehicle Model</div><div class="value">${vehicleModel}</div></div>
+          <div class="info-item"><div class="label">Plate Number</div><div class="value">${vehicleNumber}</div></div>
+          <div class="info-item"><div class="label">Vehicle Color</div><div class="value" style="text-transform:capitalize">${vehicleColor}</div></div>
         </div>
       </div>
 
@@ -183,20 +174,20 @@ const generateReceiptPDF = (ride: any, pickupAddress: string, dropAddress: strin
         <div class="section-title">Trip Details</div>
         <div class="info-grid">
           <div class="info-item"><div class="label">Date & Time</div><div class="value">${dateStr}</div></div>
-          <div class="info-item"><div class="label">Payment</div><div class="value">${ride.paymentStatus || "N/A"}</div></div>
-          ${ride.platformFee ? `<div class="info-item"><div class="label">Platform Fee</div><div class="value">₹${ride.platformFee}</div></div>` : ""}
-          ${ride.driverEarnings ? `<div class="info-item"><div class="label">Driver Earnings</div><div class="value">₹${ride.driverEarnings}</div></div>` : ""}
+          <div class="info-item"><div class="label">Payment Status</div><div class="value" style="text-transform:capitalize">${ride.paymentStatus || "Completed"}</div></div>
+          ${ride.platformFee ? `<div class="info-item"><div class="label">Platform Fee</div><div class="value">₹${ride.platformFee.toFixed(2)}</div></div>` : ""}
+          ${ride.driverEarnings ? `<div class="info-item"><div class="label">Driver Earnings</div><div class="value">₹${ride.driverEarnings.toFixed(2)}</div></div>` : ""}
         </div>
       </div>
 
       <div class="total">
         <span class="label">Total Amount</span>
-        <span class="value">₹${ride.price || 0}</span>
+        <span class="value">₹${(ride.price || 0).toFixed(2)}</span>
       </div>
     </div>
     <div class="footer">
-      <p>Thank you for riding with us!</p>
-      <div class="brand">CheckPoint &bull; Safe Rides, Smart Savings</div>
+      <p>Thank you for riding with CheckPoint!</p>
+      <div class="brand">CheckPoint • Safe Rides, Smart Savings</div>
     </div>
   </div>
 </body>
@@ -219,6 +210,8 @@ export function RideDetailsPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [booking, setBooking] = useState<any>(null)
   const [showOwnRideAlert, setShowOwnRideAlert] = useState(false)
+  const [alreadyBooked, setAlreadyBooked] = useState(false)
+  const [checkingBooking, setCheckingBooking] = useState(true)
   const { toast } = useToast()
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
@@ -226,18 +219,76 @@ export function RideDetailsPage() {
   const [pickupAddress, setPickupAddress] = useState<string | null>(null)
   const [dropAddress, setDropAddress] = useState<string | null>(null)
 
+  const isOwnRide = ride?.driver?.id === currentUser?.id
+
   useEffect(() => {
     loadRideDetails()
   }, [rideId])
+
+  useEffect(() => {
+    console.log('🔄 alreadyBooked state changed:', alreadyBooked)
+    console.log('🔄 checkingBooking state:', checkingBooking)
+    console.log('🔄 isOwnRide:', isOwnRide)
+  }, [alreadyBooked, checkingBooking, isOwnRide])
 
   const loadRideDetails = async () => {
     try {
       const data = await rideService.getRideById(rideId!)
       setRide(data)
+      
+      console.log('🔍 About to check bookings. Current user:', currentUser)
+      console.log('🔍 Current user has ID?', currentUser?.id)
+      
+      // Check if user has already booked this ride
+      if (currentUser?.id) {
+        console.log('✅ User has ID, calling checkIfAlreadyBooked')
+        await checkIfAlreadyBooked()
+      } else {
+        console.log('⚠️ No user ID found, skipping booking check')
+        setCheckingBooking(false)
+      }
     } catch (error) {
       console.error("Failed to load ride:", error)
+      setCheckingBooking(false)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkIfAlreadyBooked = async () => {
+    try {
+      console.log('🔍 Starting booking check for ride:', rideId)
+      console.log('👤 Current user:', currentUser)
+      
+      const bookings = await bookingService.getMyBookings()
+      console.log('📋 All bookings received:', bookings)
+      
+      const hasBooked = bookings.some(
+        (b: any) => {
+          const bookingRideId = b.ride?.id || b.rideId
+          const rideIdMatch = bookingRideId === rideId || String(bookingRideId) === String(rideId)
+          const statusMatch = b.status === 'CONFIRMED' || b.status === 'PENDING' || b.status === 'ACCEPTED'
+          
+          console.log(`Checking booking ${b.id}:`, {
+            bookingRideId,
+            currentRideId: rideId,
+            rideIdMatch,
+            status: b.status,
+            statusMatch,
+            matches: rideIdMatch && statusMatch
+          })
+          
+          return rideIdMatch && statusMatch
+        }
+      )
+      
+      console.log('✅ Already booked result:', hasBooked)
+      setAlreadyBooked(hasBooked)
+    } catch (error) {
+      console.error("❌ Failed to check booking status:", error)
+    } finally {
+      setCheckingBooking(false)
+      console.log('✅ Booking check complete')
     }
   }
 
@@ -291,8 +342,6 @@ export function RideDetailsPage() {
     resolveAddresses()
   }, [ride])
 
-  const isOwnRide = ride?.driver?.id === currentUser?.id
-
   const handleBookRide = async () => {
     if (isOwnRide) {
       setShowOwnRideAlert(true)
@@ -313,15 +362,35 @@ export function RideDetailsPage() {
     try {
       const bookingResponse = await bookingService.requestRide(rideId!)
       setBooking(bookingResponse)
+      setAlreadyBooked(true) // Mark as booked after successful booking
       setShowSuccessModal(true)
       setTimeout(() => {
         setShowSuccessModal(false)
         navigate("/my-rides")
       }, 2000)
     } catch (error: any) {
-      toast({ title: "Booking Failed", description: error.message || "Failed to book ride", variant: "destructive" })
+      // Check if error message indicates already booked
+      const errorMessage = error.message || ''
+      console.log('❌ Booking error caught:', errorMessage)
+      
+      if (errorMessage.toLowerCase().includes('already booked')) {
+        console.log('✅ Detected "already booked" error, updating state')
+        setAlreadyBooked(true)
+        toast({ 
+          title: "Already Booked", 
+          description: "You have already booked this ride.", 
+          variant: "default" 
+        })
+      } else {
+        toast({ 
+          title: "Booking Failed", 
+          description: errorMessage || "Failed to book ride", 
+          variant: "destructive" 
+        })
+      }
     } finally {
       setIsBooking(false)
+      console.log('🔄 Booking state updated. alreadyBooked:', alreadyBooked)
     }
   }
 
@@ -432,8 +501,8 @@ export function RideDetailsPage() {
 
             {/* Price pill */}
             <div className="md:ml-2 flex items-center gap-1.5 bg-white/5 rounded-full px-4 py-2 border border-white/10">
-              <DollarSign className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-xl font-bold text-white">₹{ride.price}</span>
+              <span className="text-green-400 font-bold text-sm">₹</span>
+              <span className="text-xl font-bold text-white">{ride.price}</span>
               <span className="text-white/40 text-[10px]">/seat</span>
             </div>
           </div>
@@ -664,6 +733,26 @@ export function RideDetailsPage() {
                     <p className="text-purple-400 text-sm font-semibold">Your Ride</p>
                     <p className="text-white/40 text-xs mt-1">You can't book your own ride</p>
                   </div>
+                ) : alreadyBooked ? (
+                  <div className="space-y-3">
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
+                      <CheckCircle2 className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                      <p className="text-blue-400 text-sm font-semibold">Already Booked</p>
+                      <p className="text-white/40 text-xs mt-1">You have already booked this ride</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 border-white/10 text-white hover:bg-white/5"
+                      onClick={() => navigate("/my-rides")}
+                    >
+                      View My Rides
+                    </Button>
+                  </div>
+                ) : checkingBooking ? (
+                  <div className="p-4 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
+                    <p className="text-white/40 text-xs">Checking availability...</p>
+                  </div>
                 ) : (
                   <>
                     <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/10">
@@ -698,7 +787,7 @@ export function RideDetailsPage() {
                     <span>Verified driver & safe ride</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-white/50">
-                    <DollarSign className="w-4 h-4 text-green-500 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                     <span>Secure payment after completion</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-white/50">

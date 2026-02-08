@@ -15,6 +15,7 @@ import {
   Filter,
   Search,
   X,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +29,7 @@ import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { notificationService } from "@/services/notificationService"
 import { bookingService } from "@/services/bookingService"
+import { toast } from "sonner"
 
 interface Notification {
   id: string
@@ -68,7 +70,30 @@ export function NotificationsPage() {
   const loadNotifications = async () => {
     try {
       const data = await notificationService.getNotifications()
-      setNotifications(data as any)
+      
+      // Check booking status for each notification with actionRequired
+      const processedNotifications = await Promise.all(
+        data.map(async (notification: any) => {
+          if (notification.actionRequired && notification.bookingId) {
+            try {
+              // Try to get booking status
+              const bookings = await bookingService.getMyBookings()
+              const booking = bookings.find((b: any) => b.id === notification.bookingId)
+              
+              // If booking is already ACCEPTED, CONFIRMED, or REJECTED, hide action buttons
+              if (booking && ['ACCEPTED', 'CONFIRMED', 'REJECTED', 'CANCELLED'].includes(booking.status)) {
+                console.log(`🔍 Booking ${notification.bookingId} already processed: ${booking.status}`)
+                return { ...notification, actionRequired: false }
+              }
+            } catch (error) {
+              console.error('Failed to check booking status:', error)
+            }
+          }
+          return notification
+        })
+      )
+      
+      setNotifications(processedNotifications as any)
     } catch (error) {
       console.error('Failed to load notifications:', error)
     } finally {
@@ -96,8 +121,10 @@ export function NotificationsPage() {
       setNotifications(prev => 
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       )
+      toast.success('Marked as read')
     } catch (error) {
       console.error('Failed to mark as read:', error)
+      toast.error('Failed to mark as read')
     }
   }
 
@@ -105,8 +132,10 @@ export function NotificationsPage() {
     try {
       await notificationService.markAllAsRead()
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      toast.success('All notifications marked as read')
     } catch (error) {
       console.error('Failed to mark all as read:', error)
+      toast.error('Failed to mark all as read')
     }
   }
 
@@ -114,30 +143,44 @@ export function NotificationsPage() {
     try {
       await notificationService.deleteNotification(id)
       setNotifications(prev => prev.filter(n => n.id !== id))
+      toast.error('Notification deleted', {
+        description: 'The notification has been removed.'
+      })
     } catch (error) {
       console.error('Failed to delete notification:', error)
+      toast.error('Failed to delete notification')
     }
   }
 
   const handleAcceptBooking = async (bookingId: string, notificationId: string) => {
     setProcessingBooking(bookingId)
     
-    // ✅ Remove notification IMMEDIATELY to prevent double-clicks
-    setNotifications(prev => prev.filter(n => n.id !== notificationId))
-    
     try {
       await bookingService.acceptBooking(bookingId)
-      alert('Booking accepted successfully!')
+      // ✅ Remove notification immediately after successful acceptance
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      toast.success('Booking Accepted!', {
+        description: 'The ride request has been confirmed successfully.'
+      })
     } catch (error: any) {
       console.error('Accept booking error:', error)
+      const errorMessage = error.message?.toLowerCase() || ''
       
-      // If it failed, show error but don't add notification back (already processed)
-      if (error.message?.includes('already been confirmed')) {
-        alert('This booking was already processed.')
+      // Check for already processed errors with multiple possible messages
+      if (errorMessage.includes('already') && (
+          errorMessage.includes('accepted') || 
+          errorMessage.includes('confirmed') ||
+          errorMessage.includes('processed')
+        )) {
+        // Remove notification if already processed
+        setNotifications(prev => prev.filter(n => n.id !== notificationId))
+        toast.info('Already Processed', {
+          description: 'This booking was already confirmed.'
+        })
       } else {
-        alert(error.message || 'Failed to accept booking')
-        // Optionally: refresh notifications to get latest state
-        await loadNotifications()
+        toast.error('Failed to Accept', {
+          description: error.message || 'Could not accept the booking request.'
+        })
       }
     } finally {
       setProcessingBooking(null)
@@ -147,20 +190,33 @@ export function NotificationsPage() {
   const handleRejectBooking = async (bookingId: string, notificationId: string) => {
     setProcessingBooking(bookingId)
     
-    // ✅ Remove notification IMMEDIATELY to prevent double-clicks
-    setNotifications(prev => prev.filter(n => n.id !== notificationId))
-    
     try {
       await bookingService.rejectBooking(bookingId)
-      alert('Booking rejected')
+      // ✅ Remove notification immediately after successful rejection
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      toast.success('Booking Declined', {
+        description: 'The ride request has been declined.'
+      })
     } catch (error: any) {
       console.error('Reject booking error:', error)
+      const errorMessage = error.message?.toLowerCase() || ''
       
-      if (error.message?.includes('already been confirmed')) {
-        alert('This booking was already processed.')
+      // Check for already processed errors
+      if (errorMessage.includes('already') && (
+          errorMessage.includes('rejected') || 
+          errorMessage.includes('confirmed') ||
+          errorMessage.includes('processed') ||
+          errorMessage.includes('accepted')
+        )) {
+        // Remove notification if already processed
+        setNotifications(prev => prev.filter(n => n.id !== notificationId))
+        toast.info('Already Processed', {
+          description: 'This booking was already handled.'
+        })
       } else {
-        alert(error.message || 'Failed to reject booking')
-        await loadNotifications()
+        toast.error('Failed to Decline', {
+          description: error.message || 'Could not decline the booking request.'
+        })
       }
     } finally {
       setProcessingBooking(null)
@@ -228,25 +284,30 @@ export function NotificationsPage() {
         <AppSidebar />
 
         <main className="flex-1 overflow-auto">
-          <header className="sticky top-0 z-10 border-b border-white/5 bg-[#0a0a0a]/95 backdrop-blur-xl px-4 md:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl md:text-2xl font-semibold text-white flex items-center gap-2">
-                  Notifications
-                  {unreadCount > 0 && (
-                    <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-400">
-                      {unreadCount} new
-                    </Badge>
-                  )}
-                </h1>
-                <p className="text-xs md:text-sm text-white/40">Stay updated with your ride activities</p>
+          <header className="sticky top-0 z-10 border-b border-white/5 bg-[#0a0a0a]/95 backdrop-blur-xl px-4 md:px-8 py-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30">
+                  <BellRing className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    Notifications
+                    {unreadCount > 0 && (
+                      <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-400 animate-pulse">
+                        {unreadCount} new
+                      </Badge>
+                    )}
+                  </h1>
+                  <p className="text-xs md:text-sm text-white/50 mt-0.5">Stay updated with your ride activities</p>
+                </div>
               </div>
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="border-white/10 text-white/60 hover:text-white"
+                  className="border-white/10 text-white/60 hover:text-white hover:bg-white/5"
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Mark all as read
@@ -256,39 +317,48 @@ export function NotificationsPage() {
           </header>
 
           <div className="p-4 md:p-6 lg:p-8">
-            <Card className="border-white/5 bg-white/5 backdrop-blur-sm">
-              <CardHeader className="pb-3 border-b border-white/5">
+            <Card className="border-white/5 bg-white/[0.03] backdrop-blur-sm">
+              <CardHeader className="pb-4 border-b border-white/5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <CardTitle className="text-lg font-semibold text-white">All Notifications</CardTitle>
-                    <CardDescription className="text-xs text-white/40">
-                      {filteredNotifications.length} notifications
+                    <CardTitle className="text-lg font-bold text-white">All Notifications</CardTitle>
+                    <CardDescription className="text-xs text-white/50 mt-1">
+                      {filteredNotifications.length} {filteredNotifications.length === 1 ? 'notification' : 'notifications'}
+                      {searchQuery && ` matching "${searchQuery}"`}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-initial sm:w-64">
+                    <div className="relative flex-1 sm:flex-initial sm:w-72">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                       <Input
                         placeholder="Search notifications..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/40 h-9"
+                        className="pl-9 pr-9 bg-white/5 border-white/10 text-white placeholder:text-white/40 h-10 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
                       />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               </CardHeader>
 
-              <div className="p-4">
+              <div className="p-5">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto mb-4">
-                    <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 text-xs sm:text-sm">
+                  <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto mb-5">
+                    <TabsTrigger value="all" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 text-xs sm:text-sm data-[state=active]:text-white">
                       All
                     </TabsTrigger>
-                    <TabsTrigger value="unread" className="data-[state=active]:bg-blue-600 text-xs sm:text-sm">
-                      Unread {unreadCount > 0 && `(${unreadCount})`}
+                    <TabsTrigger value="unread" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 text-xs sm:text-sm data-[state=active]:text-white">
+                      Unread {unreadCount > 0 && <Badge className="ml-1.5 h-5 px-1.5 bg-blue-400 text-white text-[10px]">{unreadCount}</Badge>}
                     </TabsTrigger>
-                    <TabsTrigger value="important" className="data-[state=active]:bg-blue-600 text-xs sm:text-sm">
+                    <TabsTrigger value="important" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 text-xs sm:text-sm data-[state=active]:text-white">
                       Important
                     </TabsTrigger>
                   </TabsList>
@@ -296,34 +366,47 @@ export function NotificationsPage() {
                   <TabsContent value={activeTab} className="mt-0">
                     <ScrollArea className="h-[calc(100vh-340px)]">
                       <div className="space-y-3 pr-4">
-                        {filteredNotifications.length === 0 ? (
-                          <Card className="border-white/5 bg-white/5">
+                        {loading ? (
+                          <Card className="border-white/5 bg-white/[0.03]">
                             <CardContent className="p-12 text-center">
-                              <Bell className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                              <p className="text-white/60">No notifications found</p>
-                              <p className="text-sm text-white/40 mt-1">You're all caught up!</p>
+                              <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto mb-3" />
+                              <p className="text-white/60">Loading notifications...</p>
+                            </CardContent>
+                          </Card>
+                        ) : filteredNotifications.length === 0 ? (
+                          <Card className="border-white/5 bg-white/[0.03]">
+                            <CardContent className="p-16 text-center">
+                              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-500/10 border border-blue-500/20 mx-auto mb-4">
+                                <Bell className="w-10 h-10 text-blue-400" />
+                              </div>
+                              <p className="text-white/70 font-semibold text-lg mb-1">
+                                {searchQuery ? 'No matching notifications' : 'No notifications found'}
+                              </p>
+                              <p className="text-sm text-white/40">
+                                {searchQuery ? 'Try a different search term' : "You're all caught up!"}
+                              </p>
                             </CardContent>
                           </Card>
                         ) : (
                           filteredNotifications.map((notification) => (
                             <Card
                               key={notification.id}
-                              className={`border ${getNotificationBg(notification.type)} transition-all ${
-                                !notification.read ? "ring-1 ring-blue-500/30" : ""
+                              className={`border ${getNotificationBg(notification.type)} transition-all hover:border-white/20 ${
+                                !notification.read ? "ring-2 ring-blue-500/40" : ""
                               }`}
                             >
-                              <CardContent className="p-4">
+                              <CardContent className="p-5">
                                 <div className="flex items-start gap-3">
                                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 ${getNotificationBg(notification.type)}`}>
                                     {getNotificationIcon(notification.type)}
                                   </div>
 
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                    <div className="flex items-start justify-between gap-2 mb-2">
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <h3 className="text-sm font-semibold text-white">{notification.title}</h3>
+                                        <h3 className="text-base font-bold text-white">{notification.title}</h3>
                                         {!notification.read && (
-                                          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                                          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50" />
                                         )}
                                         {getPriorityBadge(notification.priority)}
                                       </div>
@@ -349,7 +432,7 @@ export function NotificationsPage() {
                                       </div>
                                     </div>
 
-                                    <p className="text-sm text-white/80 mb-2">{notification.message}</p>
+                                    <p className="text-sm text-white/70 leading-relaxed mb-3">{notification.message}</p>
 
                                     {notification.metadata && (
                                       <div className="flex items-center gap-3 text-xs text-white/60 mb-2 flex-wrap">
@@ -385,19 +468,27 @@ export function NotificationsPage() {
                                           <Button 
                                             size="sm" 
                                             variant="outline" 
-                                            className="h-7 border-white/20 text-white/60 hover:text-white"
+                                            className="h-8 px-4 border-white/20 text-white/70 hover:text-white hover:bg-red-500/10 hover:border-red-500/30"
                                             onClick={() => handleRejectBooking(notification.bookingId!, notification.id)}
                                             disabled={processingBooking === notification.bookingId}
                                           >
-                                            {processingBooking === notification.bookingId ? 'Processing...' : 'Decline'}
+                                            {processingBooking === notification.bookingId ? (
+                                              <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> Processing</>
+                                            ) : (
+                                              'Decline'
+                                            )}
                                           </Button>
                                           <Button 
                                             size="sm" 
-                                            className="h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                                            className="h-8 px-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold shadow-lg shadow-green-500/20"
                                             onClick={() => handleAcceptBooking(notification.bookingId!, notification.id)}
                                             disabled={processingBooking === notification.bookingId}
                                           >
-                                            {processingBooking === notification.bookingId ? 'Processing...' : 'Accept'}
+                                            {processingBooking === notification.bookingId ? (
+                                              <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> Processing</>
+                                            ) : (
+                                              'Accept'
+                                            )}
                                           </Button>
                                         </div>
                                       )}

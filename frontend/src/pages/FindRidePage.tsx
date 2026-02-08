@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react"
 import React from "react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import {
   MapPin,
   Search,
@@ -52,25 +53,18 @@ const bikeIcon = L.divIcon({
   popupAnchor: [0, -15],
 })
 
-function generateMockRiders(centerLat: number, centerLng: number, count: number = 8) {
-  const riders = []
-  const radiusInDegrees = 0.09
-  
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * 2 * Math.PI
-    const distance = Math.random() * radiusInDegrees
-    
-    const lat = centerLat + (distance * Math.cos(angle))
-    const lng = centerLng + (distance * Math.sin(angle))
-    
-    riders.push({
-      id: i + 1,
-      lat: parseFloat(lat.toFixed(6)),
-      lng: parseFloat(lng.toFixed(6)),
-    })
+// Helper function to get address from coordinates
+async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+    )
+    const data = await response.json()
+    return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+  } catch (error) {
+    console.error('Error fetching address:', error)
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
   }
-  
-  return riders
 }
 
 export function FindRidePage() {
@@ -86,8 +80,8 @@ export function FindRidePage() {
   const [fromCoords, setFromCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [toCoords, setToCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [route, setRoute] = useState<Array<[number, number]>>([])
-  const [nearbyRiders, setNearbyRiders] = useState<Array<{ id: number; lat: number; lng: number }>>([])
   const [availableRides, setAvailableRides] = useState<any[]>([])
+  const [rideAddresses, setRideAddresses] = useState<Record<string, { start: string; end: string }>>({})
 
   const mapRef = useRef<L.Map | null>(null)
   const navigate = useNavigate()
@@ -107,14 +101,24 @@ export function FindRidePage() {
           setMapCenter(coords)
           setFromLocation("Current Location")
           setLoadingLocation(false)
+          toast.success('Location detected', {
+            description: 'Your current location has been set as pickup point'
+          })
         },
         (error) => {
           console.error("❌ Error getting location:", error)
           setLoadingLocation(false)
+          toast.error('Location access denied', {
+            description: 'Please enable location access or enter location manually'
+          })
         }
       )
     } else {
       console.error('❌ Geolocation not supported')
+      toast.error('Geolocation not supported', {
+        description: 'Your browser does not support location services'
+      })
+      setLoadingLocation(false)
     }
   }
 
@@ -131,12 +135,7 @@ export function FindRidePage() {
     console.log('Your pickup:', fromCoords)
     console.log('Your destination:', toCoords)
     
-    const mockRiders = generateMockRiders(toCoords.lat, toCoords.lng)
-    setNearbyRiders(mockRiders)
-    console.log('📍 Generated mock riders:', mockRiders.length)
-    
     try {
-      // 🔧 FIXED: Pass all 5 parameters (startLat, startLng, destLat, destLng, radius)
       const rides = await rideService.searchRides(
         fromCoords.lat,   // Your pickup latitude
         fromCoords.lng,   // Your pickup longitude
@@ -150,6 +149,35 @@ export function FindRidePage() {
       console.log('🚗 Total rides found:', rides.length)
       
       setAvailableRides(rides)
+      
+      if (rides.length > 0) {
+        toast.success(`${rides.length} ride${rides.length > 1 ? 's' : ''} found!`, {
+          description: 'Check the map and list below for available options'
+        })
+      } else {
+        toast.info('No rides found', {
+          description: 'Try adjusting your search locations or try again later'
+        })
+      }
+
+      // Fetch addresses for each ride
+      const addressPromises = rides.map(async (ride: any) => {
+        const startAddress = await getAddressFromCoords(ride.startLatitude, ride.startLongitude)
+        const endAddress = await getAddressFromCoords(ride.endLatitude, ride.endLongitude)
+        return {
+          id: ride.id,
+          start: startAddress,
+          end: endAddress
+        }
+      })
+
+      const addresses = await Promise.all(addressPromises)
+      const addressMap = addresses.reduce((acc, { id, start, end }) => {
+        acc[id] = { start, end }
+        return acc
+      }, {} as Record<string, { start: string; end: string }>)
+      
+      setRideAddresses(addressMap)
       
       fetch(
         `https://router.project-osrm.org/route/v1/driving/${fromCoords.lng},${fromCoords.lat};${toCoords.lng},${toCoords.lat}?overview=full&geometries=geojson`
@@ -288,23 +316,6 @@ export function FindRidePage() {
                         </>
                       )}
                     </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-white/20 text-white/80 hover:bg-white/10"
-                      onClick={() => {
-                        const from = { lat: 12.9352, lng: 77.6245 }
-                        const to = { lat: 12.9698, lng: 77.7500 }
-                        setFromCoords(from)
-                        setToCoords(to)
-                        setFromLocation("Koramangala, Bangalore")
-                        setToLocation("Whitefield, Bangalore")
-                        setMapCenter(from)
-                      }}
-                    >
-                      Try Demo Route
-                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -316,9 +327,9 @@ export function FindRidePage() {
                   <CardHeader className="p-3 border-b border-white/5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm font-semibold text-white">Route Map</CardTitle>
-                      {showResults && nearbyRiders.length > 0 && (
+                      {showResults && availableRides.length > 0 && (
                         <Badge variant="outline" className="border-blue-500 text-blue-400">
-                          🏍️ {nearbyRiders.length} riders nearby
+                          🏍️ {availableRides.length} riders nearby
                         </Badge>
                       )}
                     </div>
@@ -347,10 +358,10 @@ export function FindRidePage() {
                       {route.length > 0 && (
                         <Polyline positions={route} pathOptions={{ color: "blue", weight: 4 }} />
                       )}
-                      {nearbyRiders.length > 0 && nearbyRiders.map(rider => (
+                      {availableRides.length > 0 && availableRides.map(ride => (
                         <Marker 
-                          key={`rider-${rider.id}`}
-                          position={[rider.lat, rider.lng]}
+                          key={`rider-${ride.id}`}
+                          position={[ride.startLatitude, ride.startLongitude]}
                           icon={bikeIcon}
                         />
                       ))}
@@ -406,12 +417,19 @@ export function FindRidePage() {
                                         {ride.status} • {new Date(ride.departureTime).toLocaleString()}
                                       </p>
                                       
-                                      <div className="flex items-center gap-2 text-xs text-white/60 mb-1.5">
-                                        <MapPin className="w-3 h-3 text-green-500 flex-shrink-0" />
-                                        <span className="truncate">Lat: {ride.startLatitude.toFixed(4)}</span>
-                                        <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                                        <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />
-                                        <span className="truncate">Lat: {ride.endLatitude.toFixed(4)}</span>
+                                      <div className="space-y-1">
+                                        <div className="flex items-start gap-2 text-xs text-white/60">
+                                          <MapPin className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
+                                          <span className="line-clamp-1">
+                                            {rideAddresses[ride.id]?.start || 'Loading...'}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-start gap-2 text-xs text-white/60">
+                                          <MapPin className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+                                          <span className="line-clamp-1">
+                                            {rideAddresses[ride.id]?.end || 'Loading...'}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>

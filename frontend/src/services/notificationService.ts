@@ -26,6 +26,11 @@ class NotificationService {
   }
 
   connect(token: string) {
+    if (this.client?.active) {
+      console.log('⚠️ WebSocket already connected');
+      return;
+    }
+
     this.client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
       connectHeaders: {
@@ -33,11 +38,13 @@ class NotificationService {
       },
       onConnect: () => {
         console.log('✅ WebSocket connected');
-        this.subscribeToNotifications();
+        // Small delay to ensure connection is fully established
+        setTimeout(() => this.subscribeToNotifications(), 100);
       },
       onStompError: (frame) => {
         console.error('❌ WebSocket error:', frame);
       },
+      reconnectDelay: 5000,
     });
 
     this.client.activate();

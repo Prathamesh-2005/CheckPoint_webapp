@@ -3,7 +3,6 @@ import React from "react"
 import { useNavigate } from "react-router-dom"
 import {
   MapPin,
-  Calendar,
   Clock,
   Users,
   IndianRupee,
@@ -13,7 +12,12 @@ import {
   X,
   CheckCircle2,
   LocateFixed,
+  CalendarIcon,
 } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -78,8 +82,9 @@ export function OfferRidePage() {
   const [toCoords, setToCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [mapCenter, setMapCenter] = useState(defaultCenter)
   const [route, setRoute] = useState<Array<[number, number]>>([])
-  const [date, setDate] = useState("")
-  const [time, setTime] = useState("")
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [hours, setHours] = useState("09")
+  const [minutes, setMinutes] = useState("00")
   const [price, setPrice] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingRoute, setIsLoadingRoute] = useState(false)
@@ -134,12 +139,20 @@ export function OfferRidePage() {
     setIsSubmitting(true)
 
     try {
+      if (!date) {
+        toast.error("Please select a date")
+        return
+      }
+
+      const departureDateTime = new Date(date)
+      departureDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+
       const rideData = {
         startLatitude: fromCoords.lat,
         startLongitude: fromCoords.lng,
         endLatitude: toCoords.lat,
         endLongitude: toCoords.lng,
-        departureTime: `${date}T${time}:00`,
+        departureTime: departureDateTime.toISOString(),
         price: parseFloat(price),
       }
 
@@ -169,8 +182,9 @@ export function OfferRidePage() {
     setFromCoords(null)
     setToCoords(null)
     setRoute([])
-    setDate("")
-    setTime("")
+    setDate(undefined)
+    setHours("09")
+    setMinutes("00")
     setPrice("")
   }
 
@@ -321,32 +335,81 @@ export function OfferRidePage() {
                       <Card className="border-white/5 bg-white/5 backdrop-blur-sm">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-blue-400" />
+                            <CalendarIcon className="w-5 h-5 text-blue-400" />
                             Date & Time
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label className="text-sm text-white/80">Date</Label>
-                              <Input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                required
-                                className="bg-white/5 border-white/10 text-white [color-scheme:dark]"
-                              />
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm text-white/80">Select Date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal bg-white/5 border-white/10 hover:bg-white/10 text-white",
+                                    !date && "text-white/40"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {date ? format(date, "PPP") : "Pick a date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 bg-zinc-900 border-white/10" align="start" sideOffset={5}>
+                                <Calendar
+                                  mode="single"
+                                  selected={date}
+                                  onSelect={setDate}
+                                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                  initialFocus
+                                  className="rounded-lg border-0"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm text-white/80">Select Time</Label>
+                            <div className="flex gap-2">
+                              <Select value={hours} onValueChange={setHours}>
+                                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                                  <SelectValue placeholder="Hour" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-white/10 max-h-[200px]">
+                                  {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
+                                    <SelectItem 
+                                      key={hour} 
+                                      value={hour.toString().padStart(2, '0')}
+                                      className="text-white hover:bg-white/10"
+                                    >
+                                      {hour.toString().padStart(2, '0')}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <span className="text-white/60 text-2xl flex items-center">:</span>
+                              <Select value={minutes} onValueChange={setMinutes}>
+                                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                                  <SelectValue placeholder="Min" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-white/10 max-h-[200px]">
+                                  {Array.from({ length: 60 }, (_, i) => i).map((minute) => (
+                                    <SelectItem 
+                                      key={minute} 
+                                      value={minute.toString().padStart(2, '0')}
+                                      className="text-white hover:bg-white/10"
+                                    >
+                                      {minute.toString().padStart(2, '0')}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm text-white/80">Time</Label>
-                              <Input
-                                type="time"
-                                value={time}
-                                onChange={(e) => setTime(e.target.value)}
-                                required
-                                className="bg-white/5 border-white/10 text-white [color-scheme:dark]"
-                              />
-                            </div>
+                            <p className="text-xs text-white/40 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3" />
+                              Selected time: {hours}:{minutes}
+                            </p>
                           </div>
                         </CardContent>
                       </Card>
@@ -398,7 +461,7 @@ export function OfferRidePage() {
 
                       <Button
                         type="submit"
-                        disabled={isSubmitting || !fromLocation || !toLocation || !date || !time || !price}
+                        disabled={isSubmitting || !fromLocation || !toLocation || !date || !price}
                         className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                       >
                         {isSubmitting ? (
@@ -468,11 +531,11 @@ export function OfferRidePage() {
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
                               <p className="text-white/40 text-xs mb-1">Date</p>
-                              <p className="text-white">{date ? new Date(date).toLocaleDateString() : "Not set"}</p>
+                              <p className="text-white">{date ? format(date, "PPP") : "Not set"}</p>
                             </div>
                             <div>
                               <p className="text-white/40 text-xs mb-1">Time</p>
-                              <p className="text-white">{time || "Not set"}</p>
+                              <p className="text-white">{hours}:{minutes}</p>
                             </div>
                             <div>
                               <p className="text-white/40 text-xs mb-1">Seats</p>

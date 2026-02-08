@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Loader2, DollarSign, Star, MapPin, Clock } from "lucide-react"
+import { ArrowLeft, Loader2, IndianRupee, Star, MapPin, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { paymentService } from "@/services/paymentService"
 import { rideService } from "@/services/rideService"
+import { bookingService } from "@/services/bookingService"
 import { useToast } from "@/hooks/use-toast"
+import { toast as sonnerToast } from "sonner"
 
 export function PaymentPage() {
   const navigate = useNavigate()
@@ -98,18 +100,21 @@ export function PaymentPage() {
               paymentMethod: "UPI",
             })
 
-            toast({
-              title: "Payment Successful",
-              description: "Your payment has been completed successfully!",
+            // Calculate total for toast message
+            const platformFeeCalc = rideDetails.price * 0.1
+            const gstCalc = rideDetails.price * 0.18
+            const totalAmountCalc = (rideDetails.price + platformFeeCalc + gstCalc).toFixed(2)
+
+            sonnerToast.success('Payment Successful! 🎉', {
+              description: `₹${totalAmountCalc} paid successfully. Thank you for your ride!`,
+              duration: 5000,
             })
             
-            setTimeout(() => navigate("/my-rides"), 1000)
+            setTimeout(() => navigate("/my-rides"), 2000)
           } catch (error: any) {
             console.error('Verification error:', error)
-            toast({
-              title: "Verification Failed",
-              description: "Payment verification failed. Please contact support.",
-              variant: "destructive",
+            sonnerToast.error('Verification Failed', {
+              description: 'Payment verification failed. Please contact support.',
             })
             setIsProcessing(false)
           }
@@ -123,10 +128,8 @@ export function PaymentPage() {
 
       const rzp = new (window as any).Razorpay(options)
       rzp.on('payment.failed', function (response: any) {
-        toast({
-          title: "Payment Failed",
-          description: response.error.description || "Transaction could not be completed",
-          variant: "destructive",
+        sonnerToast.error('Payment Failed', {
+          description: response.error.description || 'Transaction could not be completed',
         })
         setIsProcessing(false)
       })
@@ -146,10 +149,8 @@ export function PaymentPage() {
         errorMessage = err.message || errorMessage
       }
       
-      toast({
-        title: "Payment Error",
+      sonnerToast.error('Payment Error', {
         description: errorMessage,
-        variant: "destructive",
       })
       setIsProcessing(false)
     }
@@ -245,7 +246,7 @@ export function PaymentPage() {
                 </>
               ) : (
                 <>
-                  <DollarSign className="w-5 h-5 mr-2" />
+                  <IndianRupee className="w-5 h-5 mr-2" />
                   Pay with Razorpay
                 </>
               )}
