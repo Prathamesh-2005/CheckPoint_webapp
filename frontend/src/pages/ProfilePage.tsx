@@ -57,24 +57,24 @@ export function ProfilePage() {
   })
 
   useEffect(() => {
-    const user = authService.getCurrentUser()
-    if (user) {
-      setProfile({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        email: user.email || "",
-        phone: "",
-        profileUrl: "",
-        avatar: user.profileImageUrl || "",
-      })
-    }
-
     loadProfile()
   }, [])
 
   const loadProfile = async () => {
     try {
       const profileData = await userService.getProfile()
+      
+      console.log('📥 Loaded profile data:', profileData)
+      
+      // Update profile state with backend data
+      setProfile({
+        firstName: profileData.firstName || "",
+        lastName: profileData.lastName || "",
+        email: profileData.email || "",
+        phone: "",
+        profileUrl: "",
+        avatar: profileData.profileImageUrl || "",
+      })
       
       if (profileData.vehicleDetails) {
         setVehicleDetails({
@@ -88,13 +88,34 @@ export function ProfilePage() {
     }
   }
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setIsSaving(true)
-    setTimeout(() => {
-      setIsSaving(false)
+    try {
+      const updates = {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        profileImageUrl: profile.avatar,
+      }
+      
+      await userService.updateProfile(updates)
+      
+      toast({
+        title: "Success!",
+        description: "Your profile has been updated.",
+      })
+      
       setIsEditing(false)
-      localStorage.setItem("user", JSON.stringify(profile))
-    }, 1500)
+      loadProfile()
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleCancelEdit = () => {
@@ -151,7 +172,15 @@ export function ProfilePage() {
                     <div className="flex flex-col items-center text-center">
                       <div className="relative mb-4">
                         <Avatar className="h-24 w-24 border-4 border-white/10">
-                          <AvatarImage src={profile.avatar} />
+                          {profile.avatar ? (
+                            <AvatarImage 
+                              src={profile.avatar} 
+                              alt={profile.firstName}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : null}
                           <AvatarFallback className="bg-blue-600 text-white text-2xl">
                             {profile.firstName[0]}{profile.lastName[0]}
                           </AvatarFallback>
@@ -333,16 +362,21 @@ export function ProfilePage() {
 
                           <div className="space-y-2 md:col-span-2">
                             <Label className="text-sm text-white/80 flex items-center gap-2">
-                              <LinkIcon className="w-4 h-4 text-blue-400" />
-                              Profile URL
+                              <Camera className="w-4 h-4 text-blue-400" />
+                              Profile Image URL
                             </Label>
                             <Input
-                              value={profile.profileUrl}
-                              onChange={(e) => setProfile({ ...profile, profileUrl: e.target.value })}
+                              value={profile.avatar}
+                              onChange={(e) => setProfile({ ...profile, avatar: e.target.value })}
                               disabled={!isEditing}
                               className="bg-white/5 border-white/10 text-white disabled:opacity-60 focus:border-blue-500 transition-colors"
-                              placeholder="https://yourwebsite.com"
+                              placeholder="https://example.com/your-profile-image.jpg"
                             />
+                            {profile.avatar && (
+                              <p className="text-xs text-white/40 mt-1">
+                                Preview your image in the avatar above
+                              </p>
+                            )}
                           </div>
                         </div>
                       </TabsContent>

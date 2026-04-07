@@ -68,6 +68,30 @@ class UserService {
       return null
     }
   }
+
+  async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile')
+      }
+
+      const data = await response.json()
+      
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+      const updatedUser = { ...currentUser, ...data }
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      
+      return data
+    } catch (error) {
+      return handleApiError(error)
+    }
+  }
 }
 
 export const userService = new UserService()

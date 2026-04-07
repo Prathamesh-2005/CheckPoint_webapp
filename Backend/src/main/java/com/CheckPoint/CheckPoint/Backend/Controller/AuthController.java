@@ -7,6 +7,7 @@ import com.CheckPoint.CheckPoint.Backend.Repository.PasswordResetTokenRepository
 import com.CheckPoint.CheckPoint.Backend.Security.JwtUtil;
 import com.CheckPoint.CheckPoint.Backend.Service.EmailService;
 import com.CheckPoint.CheckPoint.Backend.Service.UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,10 +29,9 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins =
-        {
-                "http://127.0.0.1:5500/","http://localhost:5173/"
-        })
+@CrossOrigin(origins = {
+        "http://127.0.0.1:5500/", "http://localhost:5173/"
+})
 public class AuthController {
 
     @Autowired
@@ -51,7 +52,6 @@ public class AuthController {
     @Autowired
     private PasswordResetTokenRepository tokenRepository;
 
-    
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
@@ -168,7 +168,7 @@ public class AuthController {
     }
 
     @GetMapping("/oauth2/success")
-    public ResponseEntity<?> oauth2LoginSuccess(OAuth2AuthenticationToken token) {
+    public void oauth2LoginSuccess(OAuth2AuthenticationToken token, HttpServletResponse response) throws IOException {
         try {
             String email = token.getPrincipal().getAttribute("email");
             String name = token.getPrincipal().getAttribute("name");
@@ -176,9 +176,8 @@ public class AuthController {
             String profileImageUrl = token.getPrincipal().getAttribute("picture");
 
             if (email == null || googleId == null) {
-                Map<String, Object> error = new HashMap<>();
-                error.put("error", "Failed to extract user information from Google");
-                return ResponseEntity.badRequest().body(error);
+                response.sendRedirect("http://localhost:5173/login?error=Failed to extract user information");
+                return;
             }
 
             User user = userService.findByEmail(email).orElseGet(() -> {
@@ -201,22 +200,38 @@ public class AuthController {
                 return userService.createUserOAuth(newUser);
             });
 
+            if (user.getGoogleId() == null || !user.getGoogleId().equals(googleId)) {
+                user.setGoogleId(googleId);
+
+                if ("LOCAL".equals(user.getLoginMethod())) {
+                    user.setLoginMethod("LOCAL,GOOGLE");
+                } else if (!user.getLoginMethod().contains("GOOGLE")) {
+                    user.setLoginMethod(user.getLoginMethod() + ",GOOGLE");
+                }
+
+                if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                    user.setProfileImageUrl(profileImageUrl);
+                }
+                user = userService.updateUser(user);
+            }
+
             userService.updateLastLoginByEmail(email);
 
             user = userService.getUserByEmail(email);
 
             String jwt = jwtUtil.generateToken(user);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("token", jwt);
-            response.put("user", userResponse(user));
-            response.put("message", "Login successful via Google");
+            Map<String, Object> userData = userResponse(user);
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String userJson = objectMapper.writeValueAsString(userData);
+            String encodedUser = java.net.URLEncoder.encode(userJson, "UTF-8");
 
-            return ResponseEntity.ok(response);
+            String redirectUrl = String.format("http://localhost:5173/oauth2/callback?token=%s&user=%s", jwt,
+                    encodedUser);
+            response.sendRedirect(redirectUrl);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "OAuth2 authentication failed: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            response.sendRedirect(
+                    "http://localhost:5173/login?error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"));
         }
     }
 
@@ -226,8 +241,8 @@ public class AuthController {
         map.put("email", user.getEmail());
         map.put("firstName", user.getFirstName());
         map.put("lastName", user.getLastName());
-        map.put("createdAt", user.getCreatedAt());
-        map.put("lastLogin", user.getLastLogin());
+        map.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        map.put("lastLogin", user.getLastLogin() != null ? user.getLastLogin().toString() : null);
         map.put("loginMethod", user.getLoginMethod());
         map.put("profileImageUrl", user.getProfileImageUrl());
         return map;

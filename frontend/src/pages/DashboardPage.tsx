@@ -54,8 +54,19 @@ export function DashboardPage() {
   })
   const [recentRides, setRecentRides] = useState<any[]>([])
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"))
   const [hasVehicleDetails, setHasVehicleDetails] = useState(true)
+
+  // Update user when localStorage changes
+  useEffect(() => {
+    const updateUser = () => {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}")
+      setUser(userData)
+    }
+    
+    window.addEventListener('storage', updateUser)
+    return () => window.removeEventListener('storage', updateUser)
+  }, [])
 
   useEffect(() => {
     loadDashboardData()
@@ -92,9 +103,11 @@ export function DashboardPage() {
       
       const updatedUser = {
         ...JSON.parse(localStorage.getItem('user') || '{}'),
+        ...profile,
         vehicleDetails: profile.vehicleDetails
       }
       localStorage.setItem('user', JSON.stringify(updatedUser))
+      setUser(updatedUser) // Update state
       
       setVehicleDetails(profile.vehicleDetails)
       setHasVehicleDetails(!!profile.vehicleDetails)
@@ -134,7 +147,15 @@ export function DashboardPage() {
                   <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
                 </Button>
                 <Avatar className="h-9 w-9 cursor-pointer">
-                  <AvatarImage src={user.profileImageUrl} />
+                  {user.profileImageUrl ? (
+                    <AvatarImage 
+                      src={user.profileImageUrl} 
+                      alt={user.firstName}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  ) : null}
                   <AvatarFallback className="bg-white text-black text-xs">
                     {user.firstName?.[0]}{user.lastName?.[0] || ""}
                   </AvatarFallback>

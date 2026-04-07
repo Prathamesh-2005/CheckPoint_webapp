@@ -63,10 +63,28 @@ const menuItems = [
 export const AppSidebar = React.memo(function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const user = React.useMemo(
-    () => JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}'),
-    []
+  const [user, setUser] = React.useState(() => 
+    JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}')
   )
+
+  // Update user data when localStorage changes
+  React.useEffect(() => {
+    const updateUser = () => {
+      const userData = JSON.parse(localStorage.getItem("user") || '{"firstName":"User","email":"user@checkpoint.com"}')
+      setUser(userData)
+    }
+
+    // Listen for storage events from other tabs/windows
+    window.addEventListener('storage', updateUser)
+    
+    // Also update when this component might need to refresh
+    const interval = setInterval(updateUser, 1000)
+
+    return () => {
+      window.removeEventListener('storage', updateUser)
+      clearInterval(interval)
+    }
+  }, [])
 
   const handleLogout = React.useCallback(() => {
     localStorage.removeItem("token")
@@ -109,7 +127,15 @@ export const AppSidebar = React.memo(function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2 mb-2 px-1">
           <Avatar className="h-7 w-7 shrink-0">
-            <AvatarImage src={user.profileImageUrl} />
+            {user.profileImageUrl ? (
+              <AvatarImage 
+                src={user.profileImageUrl} 
+                alt={user.firstName}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : null}
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
               {user.firstName?.[0]}{user.lastName?.[0] || ""}
             </AvatarFallback>

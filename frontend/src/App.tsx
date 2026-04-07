@@ -3,6 +3,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { OAuth2CallbackPage } from "./pages/OAuth2CallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { FindRidePage } from "./pages/FindRidePage";
 import { OfferRidePage } from "./pages/OfferRidePage";
@@ -20,6 +21,7 @@ import { notificationService } from './services/notificationService';
 import { authService } from './services/authService';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Toaster } from "sonner"
+import { RegisterPage } from "./pages/RegisterPage";
 
 
 function App() {
@@ -65,9 +67,10 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
 
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/find-ride" element={<ProtectedRoute><FindRidePage /></ProtectedRoute>} />

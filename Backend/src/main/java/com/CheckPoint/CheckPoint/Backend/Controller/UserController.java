@@ -67,4 +67,34 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestBody Map<String, String> updates,
+            @AuthenticationPrincipal User user) {
+
+        User existingUser = userService.getUserProfile(user.getId());
+
+        if (updates.containsKey("firstName")) {
+            existingUser.setFirstName(updates.get("firstName"));
+        }
+        if (updates.containsKey("lastName")) {
+            existingUser.setLastName(updates.get("lastName"));
+        }
+        if (updates.containsKey("profileImageUrl")) {
+            existingUser.setProfileImageUrl(updates.get("profileImageUrl"));
+        }
+
+        User updatedUser = userService.updateUser(existingUser);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Profile updated successfully");
+        response.put("id", updatedUser.getId());
+        response.put("email", updatedUser.getEmail());
+        response.put("firstName", updatedUser.getFirstName());
+        response.put("lastName", updatedUser.getLastName());
+        response.put("profileImageUrl", updatedUser.getProfileImageUrl());
+
+        return ResponseEntity.ok(response);
+    }
 }
